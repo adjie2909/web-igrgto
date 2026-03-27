@@ -60,6 +60,7 @@
     .bg-approved { background: #dcfce7; }
     .bg-proses { background: #e0e7ff; }
     .bg-selesai { background: #dcfce7; }
+    .bg-tolak { background: #ffaf81; }
 
     /* BUTTON */
     .btn {
@@ -297,27 +298,31 @@
 <body>
 
 @if(!request()->is('login') && !request()->is('register'))
-<div class="navbar">
-    <div style="font-weight:600;">
-        INDOGROSIR GORONTALO
-    </div>
+<div class="navbar" style="display:flex; align-items:center; justify-content:space-between;">
 
-        <div style="display:flex; align-items:center; gap:20px;">
+    <!-- KIRI: LOGO + TEXT -->
+    <div style="display:flex; align-items:center; gap:10px;">
+        <img src="{{ asset('assets/logo_indogrosir.png') }}" style="height:40px;">
 
-            @auth
-                <div style="font-size:14px; color:#cbd5f5;">
-                    {{ auth()->user()->userid }}
-                </div>
-
-                <form method="POST" action="{{ route('logout') }}">
-                    @csrf
-                    <button class="btn btn-red">Logout</button>
-                </form>
-            @endauth
-
-
+        <div style="font-weight:600;">
+            INDOGROSIR GORONTALO
         </div>
     </div>
+
+    <!-- KANAN: USER -->
+    <div style="display:flex; align-items:center; gap:20px;">
+        @auth
+            <div style="font-size:14px; color:#cbd5f5;">
+                {{ auth()->user()->userid }}
+            </div>
+
+            <form method="POST" action="{{ route('logout') }}">
+                @csrf
+                <button class="btn btn-red">Logout</button>
+            </form>
+        @endauth
+    </div>
+
 </div>
 @endif
 

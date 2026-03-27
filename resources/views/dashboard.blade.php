@@ -36,6 +36,11 @@
         <div class="stat-value">{{ $diproses }}</div>
     </div>
 
+    <div class="stat-card bg-tolak">
+        <div class="stat-title">Ditolak</div>
+        <div class="stat-value">{{ $ditolak }}</div>
+    </div>
+
     <div class="stat-card bg-selesai">
         <div class="stat-title">Selesai</div>
         <div class="stat-value">{{ $selesai }}</div>
