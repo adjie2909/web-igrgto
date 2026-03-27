@@ -38,10 +38,10 @@ Route::middleware('auth')->group(function () {
     Route::post('/request/store', [RequestController::class, 'store'])->name('request.store');
 
     // APPROVAL
-    Route::get('/approve/{id}', [ApprovalController::class, 'approve'])->name('approve');
+    Route::post('approval/{id}/approve', [ApprovalController::class, 'approve'])->name('approval.approve');
 
     // REJECT
-    Route::post('/reject/{id}', [ApprovalController::class, 'reject'])->name('reject');
+    Route::post('approval/{id}/reject', [ApprovalController::class, 'reject'])->name('approval.reject');
 
     // PGA ACTION
     Route::get('/request/proses/{id}', [RequestController::class, 'proses'])->name('proses');
@@ -51,6 +51,19 @@ Route::middleware('auth')->group(function () {
     Route::get('/request/pdf/{id}', [RequestController::class, 'pdfChecklist'])->name('request.pdf');
     Route::get('/request/pdf-serah/{id}', [RequestController::class, 'pdfSerah'])->name('request.pdf.serah');
 
+});
+
+Route::middleware(['auth', 'admin'])->prefix('admin')->group(function () {
+
+    Route::resource('user', \App\Http\Controllers\Admin\UserController::class)->except(['create','store']);
+
+    // 🔥 reset password
+    Route::get('user/reset/{id}', [\App\Http\Controllers\Admin\UserController::class, 'resetPassword'])
+        ->name('user.reset');
+
+    Route::get('/', function () {
+        return view('admin.dashboard');
+    })->name('admin.dashboard');
 });
 
 /*

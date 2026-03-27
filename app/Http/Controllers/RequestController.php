@@ -86,46 +86,63 @@ class RequestController extends Controller
     // ===============================
     // LIST REQUEST
     // ===============================
-    public function index()
+    public function index(Request $request)
     {
         $user = auth()->user();
 
-        if ($user->role == 'SM') {
+        $query = RequestHeader::with(['user.division', 'details.barang']);
 
-            $requests = RequestHeader::with(['user.division', 'details.barang'])
-                ->where('current_approval_level', 3)
-                ->where('status', 0)
-                ->get();
+        // 🔍 SEARCH
+        if ($request->search) {
+            $search = $request->search;
 
-        } elseif ($user->role == 'SJM' || $user->role == 'SAM') {
+            $query->whereHas('user', function ($q) use ($search) {
+                $q->where('name', 'like', "%$search%");
+            });
+        }
+
+        // 🔥 ROLE FILTER (TETAP DIPAKAI)
+        if ($user->role == 'ADMIN') {
+
+            // 🔥 ADMIN LIHAT SEMUA
+            // tidak perlu filter
+
+        } elseif ($user->role == 'SM') {
+
+            $query->where('current_approval_level', 3)
+                ->where('status', 0);
+
+        } elseif ($user->role == 'SJM' || $user->role == 'SAM' ) {
 
             $allowedDivisions = DivisionApprover::where('user_id', $user->id)
                 ->pluck('division_id');
 
             $level = $user->role == 'SJM' ? 1 : 2;
 
-            $requests = RequestHeader::with(['user.division', 'details.barang'])
-                ->where('current_approval_level', $level)
+            $query->where('current_approval_level', $level)
                 ->where('status', 0)
                 ->whereHas('user', function ($q) use ($allowedDivisions) {
                     $q->whereIn('division_id', $allowedDivisions);
-                })
-                ->get();
+                });
 
         } elseif ($user->role == 'PGA') {
 
-            $requests = RequestHeader::with(['user.division', 'details.barang'])
-                ->whereIn('status', [1, 2])
-                ->get();
+            $query->whereIn('status', [1, 2]);
 
         } else {
 
-            $requests = RequestHeader::with(['user.division', 'details.barang'])
-                ->where('user_id', $user->id)
-                ->get();
+            // USER BIASA
+            $query->where('user_id', $user->id);
         }
 
-        return view('request.index', compact('requests'));
+        // 🔥 PAGINATION (INI PENTING)
+        $requests = $query->latest()->paginate(10)->withQueryString();
+
+        if ($user->role == 'ADMIN') {
+            return view('admin.request.index', compact('requests'));
+        } else {
+            return view('request.index', compact('requests'));
+        }
     }
 
 

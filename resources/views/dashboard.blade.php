@@ -89,6 +89,8 @@
                     <span class="status-approved">Approved</span>
                 @elseif($r->status == 2)
                     <span class="status-proses">Diproses</span>
+                @elseif($r->status == 4)
+                    <span class="status-reject">Ditolak</span>
                 @else
                     <span class="status-selesai">Selesai</span>
                 @endif

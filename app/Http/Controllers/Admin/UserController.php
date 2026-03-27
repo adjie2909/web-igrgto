@@ -1,0 +1,103 @@
+<?php
+
+namespace App\Http\Controllers\Admin;
+
+use App\Models\User;
+use App\Models\Division;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
+use App\Http\Controllers\Controller;
+
+class UserController extends Controller
+{
+    public function index(Request $request)
+    {
+        $query = User::with('division');
+
+        // 🔥 SEARCH LOGIC
+        if ($request->search) {
+            $search = $request->search;
+
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%$search%")
+                ->orWhere('userid', 'like', "%$search%")
+                ->orWhere('email', 'like', "%$search%");
+            });
+        }
+
+        $users = $query->paginate(10)->withQueryString();
+
+        $divisions = Division::all();
+
+        return view('admin.user.index', compact('users', 'divisions'));
+    }
+
+    public function edit($id)
+    {
+        $user = User::findOrFail($id);
+
+        // 🔥 PROTEKSI
+        if ($user->id == auth()->id()) {
+            abort(403);
+        }
+
+        $divisions = Division::all();
+
+        return view('admin.user.edit', compact('user', 'divisions'));
+    }
+
+    public function update(Request $request, $id)
+    {
+        $user = User::findOrFail($id);
+
+        // 🔥 PROTEKSI
+        if ($user->id == auth()->id()) {
+            abort(403);
+        }
+
+        // 🔥 VALIDASI (INI STEP 4)
+        $request->validate([
+            'name' => 'required',
+            'userid' => 'required',
+            'email' => 'required|email',
+            'division_id' => 'required',
+            'role' => 'required',
+        ]);
+
+        $user->update([
+            'name' => strtoupper($request->name),
+            'userid' => strtoupper($request->userid),
+            'email' => $request->email,
+            'division_id' => $request->division_id,
+            'role' => $request->role,
+        ]);
+
+        return redirect()->route('user.index')
+            ->with('success', 'User berhasil diupdate');
+    }
+
+    public function destroy($id)
+    {
+        $user = User::findOrFail($id);
+
+        // 🔥 PROTEKSI: tidak bisa hapus diri sendiri
+        if ($user->id == auth()->id()) {
+            return back()->with('error', 'Tidak bisa menghapus akun sendiri');
+        }
+
+        $user->delete();
+
+        return back()->with('success', 'User berhasil dihapus');
+    }
+
+    // 🔥 RESET PASSWORD
+    public function resetPassword($id)
+    {
+        $user = User::findOrFail($id);
+
+        $user->password = Hash::make('123456');
+        $user->save();
+
+        return back()->with('success', 'Password direset ke 123456');
+    }
+}

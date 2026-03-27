@@ -78,16 +78,20 @@
                     @if($isApprover && $req->status == 0)
 
                     <div style="display:flex; gap:6px;">
-                        <a class="btn btn-outline" href="{{ route('approve', $req->id) }}">
+                    <form method="POST" action="{{ route('approval.approve', $req->id) }}">
+                        @csrf
+                        <button class="btn btn-blue">
                             Approve
-                        </a>
+                        </button>
+                    </form>
 
-                    <button 
-                        type="button"
-                        class="btn btn-action btn-reject"
-                        data-id="{{ $req->id }}">
-                        Reject
-                    </button>
+                    <form method="POST" action="{{ route('approval.reject', $req->id) }}">
+                        @csrf
+                        <input type="hidden" name="reason" value="Ditolak">
+                        <button class="btn btn-gray">
+                            Reject
+                        </button>
+                    </form>
                     </div>
 
                     @endif

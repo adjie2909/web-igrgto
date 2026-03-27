@@ -23,7 +23,7 @@ class DashboardController extends Controller
         // ===============================
         // FILTER DIVISI
         // ===============================
-        if ($divisionName != 'INDOGROSIR') {
+        if (!in_array($divisionName, ['INDOGROSIR', 'PGA'])) {
             $query->whereHas('user', function ($q) use ($user) {
                 $q->where('division_id', $user->division_id);
             });
