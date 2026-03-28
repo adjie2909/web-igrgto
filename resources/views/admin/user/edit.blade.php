@@ -2,76 +2,97 @@
 
 @section('content')
 
-<div class="card" style="max-width:700px; margin:auto;">
+    <div class="card" style="max-width:700px; margin:auto;">
 
-    <div style="margin-bottom:20px;">
-        <h2 style="margin:0;">Edit User</h2>
-        <p style="color:#64748b; font-size:14px;">
-            Update informasi user dengan benar
-        </p>
+        <div style="margin-bottom:20px;">
+            <h2 style="margin:0;">Edit User</h2>
+            <p style="color:#64748b; font-size:14px;">
+                Update informasi user dengan benar
+            </p>
+        </div>
+
+        <form method="POST" action="{{ route('user.update', $user->id) }}">
+            @csrf
+            @method('PUT')
+
+            <div class="grid-2">
+
+                <div class="form-group">
+                    <label>Nama</label>
+                    <input type="text" id="name" name="name" value="{{ $user->name }}">
+                </div>
+
+                <div class="form-group">
+                    <label>User ID</label>
+                    <input type="text" id="userid" name="userid" value="{{ $user->userid }}">
+                </div>
+
+                <div class="form-group full">
+                    <label>Email</label>
+                    <input type="text" name="email" value="{{ $user->email }}">
+                </div>
+
+                <div class="form-group">
+                    <label>Divisi</label>
+                    <select name="division_id">
+                        @foreach($divisions as $d)
+                            <option value="{{ $d->id }}" {{ $user->division_id == $d->id ? 'selected' : '' }}>
+                                {{ $d->nama_divisi }}
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Role</label>
+                    <select name="role">
+                        @foreach(['USER', 'SJM', 'SAM', 'SM', 'PGA', 'ADMIN'] as $r)
+                            <option value="{{ $r }}" {{ $user->role == $r ? 'selected' : '' }}>
+                                {{ $r }}
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
+
+            </div>
+
+            <div style="margin-top:25px; display:flex; justify-content:space-between; align-items:center;">
+
+                <a href="{{ route('user.index') }}" class="btn btn-gray">
+                    ← Kembali
+                </a>
+
+                <button class="btn btn-blue">
+                    💾 Update User
+                </button>
+
+            </div>
+
+        </form>
+
     </div>
+    <script>
+        window.addEventListener('load', function () {
 
-    <form method="POST" action="{{ route('user.update', $user->id) }}">
-        @csrf
-        @method('PUT')
+            const userid = document.querySelector('input[name="userid"]');
+            const name = document.querySelector('input[name="name"]');
 
-        <div class="grid-2">
+            // USERID AUTO UPPERCASE
+            if (userid) {
+                userid.addEventListener('input', function () {
+                    this.value = this.value.toUpperCase();
+                });
+            }
 
-            <div class="form-group">
-                <label>Nama</label>
-                <input type="text" name="name" value="{{ $user->name }}">
-            </div>
+            // NAME AUTO CAPITAL
+            if (name) {
+                name.addEventListener('input', function () {
+                    this.value = this.value
+                        .toLowerCase()
+                        .replace(/\b\w/g, c => c.toUpperCase());
+                });
+            }
 
-            <div class="form-group">
-                <label>User ID</label>
-                <input type="text" name="userid" value="{{ $user->userid }}">
-            </div>
-
-            <div class="form-group full">
-                <label>Email</label>
-                <input type="text" name="email" value="{{ $user->email }}">
-            </div>
-
-            <div class="form-group">
-                <label>Divisi</label>
-                <select name="division_id">
-                    @foreach($divisions as $d)
-                        <option value="{{ $d->id }}"
-                            {{ $user->division_id == $d->id ? 'selected' : '' }}>
-                            {{ $d->nama_divisi }}
-                        </option>
-                    @endforeach
-                </select>
-            </div>
-
-            <div class="form-group">
-                <label>Role</label>
-                <select name="role">
-                    @foreach(['USER','SJM','SAM','SM','PGA','ADMIN'] as $r)
-                        <option value="{{ $r }}"
-                            {{ $user->role == $r ? 'selected' : '' }}>
-                            {{ $r }}
-                        </option>
-                    @endforeach
-                </select>
-            </div>
-
-        </div>
-
-        <div style="margin-top:25px; display:flex; justify-content:space-between; align-items:center;">
-
-            <a href="{{ route('user.index') }}" class="btn btn-gray">
-                ← Kembali
-            </a>
-
-            <button class="btn btn-blue">
-                💾 Update User
-            </button>
-
-        </div>
-
-    </form>
-
-</div>
-
+        });
+    </script>
 @endsection

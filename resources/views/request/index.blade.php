@@ -78,13 +78,10 @@
                                         </button>
                                     </form>
 
-                                    <form method="POST" action="{{ route('approval.reject', $req->id) }}">
-                                        @csrf
-                                        <input type="hidden" name="reason" value="Ditolak">
-                                        <button class="btn btn-gray">
-                                            Reject
-                                        </button>
-                                    </form>
+                                    <button type="button" class="btn btn-gray btn-reject" data-id="{{ $req->id }}">
+                                        Reject
+                                    </button>
+
                                 </div>
 
                             @endif
@@ -213,6 +210,7 @@
                     <tr>
                         <th>Barang</th>
                         <th>Qty</th>
+                        <th>Gambar</th>
                     </tr>
                 </thead>
                 <tbody id="d_items"></tbody>
@@ -241,7 +239,7 @@
 
                     console.log('Reject ID:', id); // debug
 
-                    formReject.action = `/reject/${id}`;
+                    formReject.action = `/approval/${id}/reject`;
                     modalReject.classList.add('show');
                 });
             });
@@ -253,9 +251,9 @@
                 });
             }
 
-            // =========================
+
             // MODAL SUCCESS
-            // =========================
+
             const modalSuccess = document.getElementById('modalSuccess');
             const btnCloseSuccess = document.getElementById('btnCloseSuccess');
 
@@ -275,7 +273,7 @@
                 }, 3000);
             @endif
 
-            });
+                });
 
         document.addEventListener('DOMContentLoaded', function () {
 
@@ -296,12 +294,12 @@
                 }, 3000);
             @endif
 
-            });
+                });
     </script>
 
-        // =========================
-        // MODAL SUCCESS
-        // =========================
+
+    <!-- MODAL DETAIL -->
+
     <script>
         document.addEventListener('DOMContentLoaded', function () {
 
@@ -324,11 +322,19 @@
 
                     data.details.forEach(item => {
                         html += `
-                                <tr>
-                                    <td>${item.barang?.nama_barang ?? item.keterangan}</td>
-                                    <td>${item.qty}</td>
-                                </tr>
-                            `;
+                                    <tr>
+                                        <td>${item.barang?.nama_barang ?? item.keterangan}</td>
+                                        <td>${item.qty}</td>
+                                        <td>
+                                            ${item.image
+                                ? `<button class="btn btn-outline" onclick="showImage('${item.image}')">
+                                                        Lihat
+                                                </button>`
+                                : '-'
+                            }
+                                        </td>
+                                    </tr>
+                                `;
                     });
 
                     document.getElementById('d_items').innerHTML = html;
@@ -357,4 +363,43 @@
             window.open("{{ route('request.pdf.serah', session('print_serah')) }}", "_blank");
         </script>
     @endif
+
+    <script>
+        function showImage(img) {
+            const modal = document.createElement('div');
+
+            modal.style = `
+            position:fixed;
+            top:0;left:0;
+            width:100%;height:100%;
+            background:rgba(0,0,0,0.7);
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            z-index:9999;
+        `;
+
+            modal.innerHTML = `
+            <div style="position:relative;">
+                <img src="/storage/${img}" 
+                     style="max-width:80vw; max-height:80vh; border-radius:10px;">
+                <button style="
+                    position:absolute;
+                    top:-10px; right:-10px;
+                    background:red; color:white;
+                    border:none; border-radius:50%;
+                    width:30px; height:30px; cursor:pointer;
+                " onclick="this.parentElement.parentElement.remove()">×</button>
+            </div>
+        `;
+
+            modal.onclick = function (e) {
+                if (e.target === modal) {
+                    modal.remove();
+                }
+            };
+
+            document.body.appendChild(modal);
+        }
+    </script>
 @endsection

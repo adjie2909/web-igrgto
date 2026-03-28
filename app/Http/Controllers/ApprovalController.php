@@ -10,7 +10,7 @@ class ApprovalController extends Controller
 {
     public function approve($id)
     {
-        $request = \App\Models\RequestHeader::findOrFail($id);
+        $request = RequestHeader::findOrFail($id);
         $user = auth()->user();
 
         // 🔥 ambil mapping division user
@@ -54,7 +54,7 @@ class ApprovalController extends Controller
 
     public function reject(Request $request, $id)
     {
-        $req = \App\Models\RequestHeader::findOrFail($id);
+        $req = RequestHeader::findOrFail($id);
         $user = auth()->user();
 
         // 🔥 VALIDASI LEVEL (INI PENTING)
@@ -73,6 +73,7 @@ class ApprovalController extends Controller
 
         // 🔥 SIMPAN REJECT
         $req->status = 4;
+        $req->nomor_serah = null;
         $req->reject_reason = $request->reason;
         $req->rejected_by = $user->id;
         $req->rejected_at = now();

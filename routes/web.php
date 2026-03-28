@@ -56,6 +56,7 @@ Route::middleware('auth')->group(function () {
 Route::middleware(['auth', 'admin'])->prefix('admin')->group(function () {
 
     Route::resource('user', \App\Http\Controllers\Admin\UserController::class)->except(['create','store']);
+    Route::resource('barang', \App\Http\Controllers\Admin\BarangController::class);
 
     // 🔥 reset password
     Route::get('user/reset/{id}', [\App\Http\Controllers\Admin\UserController::class, 'resetPassword'])

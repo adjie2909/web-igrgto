@@ -1,7 +1,7 @@
 <?php
 namespace App\Http\Controllers;
 
-use App\Http\Controllers\Controller; 
+use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use App\Models\RequestHeader;
@@ -9,6 +9,7 @@ use App\Models\RequestDetail;
 use App\Models\DivisionApprover;
 use App\Models\Barang;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Support\Facades\DB;
 
 class RequestController extends Controller
 {
@@ -18,7 +19,33 @@ class RequestController extends Controller
     // ===============================
     public function create()
     {
-        $barangs = Barang::all();
+        $barangs = Barang::leftJoin('request_details', 'barangs.id', '=', 'request_details.barang_id')
+            ->leftJoin('request_headers', 'request_details.request_id', '=', 'request_headers.id')
+            ->select(
+                'barangs.*',
+                DB::raw("
+                    COALESCE(SUM(
+                        CASE 
+                            WHEN request_headers.status IN (0,1,2) OR request_headers.status IS NULL
+                            THEN request_details.qty
+                            ELSE 0
+                        END
+                    ),0) as total_request
+                ")
+            )
+            ->groupBy(
+                'barangs.id',
+                'barangs.kode_barang',
+                'barangs.nama_barang',
+                'barangs.fraction',
+                'barangs.unit',
+                'barangs.stok',
+                'barangs.harga_estimasi',
+                'barangs.created_at',
+                'barangs.updated_at'
+            )
+            ->get();
+
         return view('request.create', compact('barangs'));
     }
 
@@ -31,6 +58,7 @@ class RequestController extends Controller
         $request->validate([
             'tanggal_request' => 'required|date',
             'items.*.qty' => 'required|integer|min:1',
+            'items.*.image' => 'nullable|image|mimes:jpg,jpeg,png|max:2048',
         ]);
 
         $divisionId = auth()->user()->division_id;
@@ -67,15 +95,23 @@ class RequestController extends Controller
             'nomor_dokumen' => $nomorDokumen,
         ]);
 
-        foreach ($request->items as $item) {
-            if (!empty($item['qty'])) {
-                RequestDetail::create([
-                    'request_id' => $header->id,
-                    'barang_id' => $item['barang_id'] ?? null,
-                    'qty' => $item['qty'],
-                    'keterangan' => $item['keterangan'] ?? null,
-                ]);
+        foreach ($request->items as $i => $item) {
+
+            $imagePath = null;
+
+            // 🔥 AMBIL FILE DARI REQUEST
+            if ($request->hasFile("items.$i.image")) {
+                $file = $request->file("items.$i.image");
+                $imagePath = $file->store('request_images', 'public');
             }
+
+            RequestDetail::create([
+                'request_id' => $header->id,
+                'barang_id' => $item['barang_id'] ?? null,
+                'qty' => $item['qty'],
+                'keterangan' => $item['keterangan'] ?? null,
+                'image' => $imagePath,
+            ]);
         }
 
         return redirect()->route('request.index')
@@ -112,7 +148,7 @@ class RequestController extends Controller
             $query->where('current_approval_level', 3)
                 ->where('status', 0);
 
-        } elseif ($user->role == 'SJM' || $user->role == 'SAM' ) {
+        } elseif ($user->role == 'SJM' || $user->role == 'SAM') {
 
             $allowedDivisions = DivisionApprover::where('user_id', $user->id)
                 ->pluck('division_id');
@@ -166,7 +202,27 @@ class RequestController extends Controller
     // ===============================
     public function selesai($id)
     {
-        $req = RequestHeader::findOrFail($id);
+        $req = RequestHeader::with('details')->findOrFail($id);
+
+
+        //TAMBAHAN: POTONG STOK
+        // 
+        if ($req->details) {
+            foreach ($req->details as $detail) {
+
+                $barang = Barang::find($detail->barang_id);
+
+                if ($barang) {
+
+                    // ambil stok yang tersedia saja (biar tidak minus)
+                    $ambil = min($barang->stok, $detail->qty);
+
+                    $barang->stok -= $ambil;
+
+                    $barang->save();
+                }
+            }
+        }
 
         $year = date('Y');
         $month = date('m');

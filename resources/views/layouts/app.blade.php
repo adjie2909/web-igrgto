@@ -108,6 +108,26 @@
             border-collapse: collapse;
         }
 
+        #table-barang th {
+            text-align: left;
+            font-size: 14px;
+            color: #64748b;
+            padding-bottom: 10px;
+        }
+
+        #table-barang td {
+            vertical-align: top;
+            padding: 10px 5px;
+        }
+
+        .info-stok {
+            background: #f8fafc;
+            border-radius: 8px;
+            padding: 8px;
+            margin-top: 6px;
+            font-size: 12px;
+        }
+
         th {
             text-align: left;
             padding: 10px;

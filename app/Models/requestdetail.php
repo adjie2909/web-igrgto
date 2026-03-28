@@ -12,6 +12,7 @@ class requestdetail extends Model
         'barang_id',
         'qty',
         'keterangan',
+        'image',
     ];
 
     public function barang()

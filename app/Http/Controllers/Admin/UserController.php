@@ -65,7 +65,7 @@ class UserController extends Controller
         ]);
 
         $user->update([
-            'name' => strtoupper($request->name),
+            'name' => ucwords(strtolower($request->name)),
             'userid' => strtoupper($request->userid),
             'email' => $request->email,
             'division_id' => $request->division_id,
