@@ -192,7 +192,7 @@ class RequestController extends Controller
         $req->save();
 
         return redirect()->route('request.index')
-            ->with('success', 'Request selesai');
+            ->with('print_serah', $req->id);
     }
 
 

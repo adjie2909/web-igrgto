@@ -408,6 +408,10 @@
         <a href="/admin">Dashboard</a>
         <a href="{{ route('user.index') }}">User</a>
         <a href="{{ route('request.index') }}">Request</a> 
+            <form method="POST" action="{{ route('logout') }}">
+                @csrf
+                <button class="btn btn-red">Logout</button>
+            </form>
     </div>
 
     <!-- CONTENT -->
