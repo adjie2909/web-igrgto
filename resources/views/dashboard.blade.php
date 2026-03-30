@@ -53,13 +53,20 @@
 
         <div style="display:flex; gap:10px;">
 
-            <a href="/request" class="btn btn-outline">
-                Lihat Request
-            </a>
-
+            @if(in_array(auth()->user()->role, ['USER','SJM','PGA']))
+                <a href="/request"  class="btn btn-primary">
+                    Lihat Request
+                </a>
+            @endif
             @if(auth()->user()->role == 'USER')
                 <a href="/request/create" class="btn btn-primary">
                     + Buat Request
+                </a>
+            @endif
+            {{-- 🔥 BULK APPROVAL KHUSUS SAM & SM --}}
+            @if(in_array(auth()->user()->role, ['SAM','SM']))
+                <a href="{{ route('approval.bulk') }}" class="btn btn-blue">
+                    Bulk Approval
                 </a>
             @endif
 

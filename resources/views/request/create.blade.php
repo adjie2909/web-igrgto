@@ -167,21 +167,19 @@ document.addEventListener('input', function(e){
         }
 
         let stok = parseInt(selected.dataset.stok || 0);
-        let terpakai = parseInt(selected.dataset.terpakai || 0);
         let harga = parseInt(selected.dataset.harga || 0);
         let unit = selected.dataset.unit || '';
 
         let qty = parseInt(e.target.value || 0);
 
-        let totalSemua = terpakai + qty;
-        let kurang = Math.max(0, totalSemua - stok);
+
+        let kurang = Math.max(0, qty- stok);
         let estimasi = kurang * harga;
 
         let info = row.querySelector('.info-stok');
 
         let html = `
         <span>Stok: <b>${stok} ${unit}</b></span><br>
-        <span>Di-request: <b>${terpakai}</b></span><br>
         `;
 
         if(kurang > 0){

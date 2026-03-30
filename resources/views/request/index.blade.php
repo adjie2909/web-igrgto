@@ -7,6 +7,11 @@
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
             <h2>List Request</h2>
 
+            @if(auth()->user()->role == 'SAM' || auth()->user()->role == 'SM')
+                <a href="{{ route('approval.bulk') }}" class="btn btn-blue">
+                    Bulk Approval
+                </a>
+            @endif
             <a href="/request/create" class="btn btn-primary">
                 + Buat Request
             </a>
@@ -401,5 +406,12 @@
 
             document.body.appendChild(modal);
         }
+    </script>
+    <script>
+    document.getElementById('checkAll').onclick = function(){
+        document.querySelectorAll('input[name="ids[]"]').forEach(cb => {
+            cb.checked = this.checked;
+        });
+    }
     </script>
 @endsection

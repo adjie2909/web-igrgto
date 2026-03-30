@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html>
+
 <head>
     <style>
         body {
@@ -35,11 +36,14 @@
             border-collapse: collapse;
         }
 
-        table, th, td {
+        table,
+        th,
+        td {
             border: 1px solid black;
         }
 
-        th, td {
+        th,
+        td {
             padding: 6px;
             text-align: center;
         }
@@ -49,6 +53,7 @@
         }
     </style>
 </head>
+
 <body>
 
     <!-- HEADER -->
@@ -77,18 +82,47 @@
             <th>No</th>
             <th>Barang</th>
             <th>Qty</th>
+            <th>Estimasi Biaya</th>
             <th>Cek</th>
         </tr>
 
+        @php $totalEstimasi = 0; @endphp
+
         @foreach($req->details as $i => $d)
-        <tr>
-            <td>{{ $i+1 }}</td>
-            <td>{{ $d->barang->nama_barang ?? $d->keterangan }}</td>
-            <td>{{ $d->qty }}</td>
-            <td></td>
-        </tr>
+
+            @php
+                $stok = $d->barang->stok ?? 0;
+                $harga = $d->barang->harga_estimasi ?? 0;
+                $kurang = max(0, $d->qty - $stok);
+                $estimasi = $kurang * $harga;
+
+                $totalEstimasi += $estimasi;
+            @endphp
+
+            <tr>
+                <td>{{ $i + 1 }}</td>
+                <td>{{ $d->barang->nama_barang ?? $d->keterangan }}</td>
+                <td>{{ $d->qty }}</td>
+
+                <td>
+                    Rp {{ number_format($estimasi, 0, ',', '.') }}
+                </td>
+
+                <td></td>
+            </tr>
+
         @endforeach
     </table>
-
+    <table style="width:100%; margin-top:15px;">
+        <tr>
+            <td style="text-align:right; font-weight:bold;">
+                Total Estimasi:
+            </td>
+            <td style="width:200px; font-weight:bold;">
+                Rp {{ number_format($totalEstimasi, 0, ',', '.') }}
+            </td>
+        </tr>
+    </table>
 </body>
+
 </html>
