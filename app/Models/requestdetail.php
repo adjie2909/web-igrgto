@@ -13,6 +13,7 @@ class requestdetail extends Model
         'qty',
         'keterangan',
         'image',
+        'harga_manual',
     ];
 
     public function barang()

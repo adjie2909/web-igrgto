@@ -3,7 +3,7 @@
 @section('content')
 
 
-    <div class="card" style="max-width:900px; margin:auto;">
+    <div class="card" style="max-width:1500px; margin:auto;">
 
         <h2 style="margin-bottom:20px;">Form Request Barang</h2>
         <p style="font-size:13px; color:#64748b;">
@@ -26,13 +26,14 @@
                     <th style="width:220px;">Barang</th>
                     <th style="width:120px;">Qty</th>
                     <th>Keterangan</th>
+                    <th style="width:120px;">Estimasi Harga</th>
                     <th style="width:200px;">Contoh Gambar</th>
                     <th style="width:100px;">Aksi</th>
                 </tr>
 
                 <tr>
                     <td>
-                        <select name="items[0][barang_id]" class="input barang-select">
+                        <select name="items[${index}][barang_id]" class="input barang-select">
                             <option value="">-- Pilih Barang --</option>
                             @foreach($barangs as $barang)
                                 <option 
@@ -49,15 +50,26 @@
                     </td>
 
                     <td>
-                        <input type="number" name="items[0][qty]" class="input qty-input">
+                        <input type="number" name="items[${index}][qty]" class="input qty-input">
                         <div class="info-stok" style="font-size:12px; margin-top:5px;"></div>
                     </td>
 
                     <td>
-                        <input type="text" name="items[0][keterangan]" class="input">
+                        <textarea 
+                            name="items[${index}][keterangan]" 
+                            class="input keterangan-textarea"
+                            placeholder="Isi jika barang tidak tersedia"
+                        ></textarea>
                     </td>
                     <td>
-                        <input type="file" name="items[0][image]" class="input">
+                        <input type="number" 
+                            name="items[${index}][harga_manual]" 
+                            class="input harga-input"
+                            placeholder="Harga"
+                            style="display:none;">
+                    </td>
+                    <td>
+                        <input type="file" name="items[${index}][image]" class="input">
                     </td>
 
                     <td>
@@ -86,36 +98,51 @@
             let table = document.getElementById('table-barang');
 
             let row = `
-            <tr>
-                <td>
-                    <select name="items[${index}][barang_id]" class="input barang-select">
-                        <option value="">-- Pilih Barang --</option>
-                        @foreach($barangs as $barang)
-                            <option 
-                                value="{{ $barang->id }}"
-                                data-stok="{{ $barang->stok }}"
-                                data-harga="{{ $barang->harga_estimasi }}"
-                                data-unit="{{ $barang->unit }}"
-                            >
-                                {{ $barang->nama_barang }}
-                            </option>
-                        @endforeach
-                    </select>
-                </td>
+                <tr>
+                    <td>
+                        <select name="items[${index}][barang_id]" class="input barang-select">
+                            <option value="">-- Pilih Barang --</option>
+                            @foreach($barangs as $barang)
+                                <option 
+                                    value="{{ $barang->id }}"
+                                    data-stok="{{ $barang->stok }}"
+                                    data-harga="{{ $barang->harga_estimasi }}"
+                                    data-unit="{{ $barang->unit }}"
+                                    data-terpakai="{{ $barang->total_request ?? 0 }}"
+                                >
+                                    {{ $barang->nama_barang }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </td>
 
-                <td>
-                    <input type="number" name="items[${index}][qty]" class="input qty-input">
-                    <div class="info-stok" style="font-size:12px; margin-top:5px;"></div>
-                </td>
+                    <td>
+                        <input type="number" name="items[${index}][qty]" class="input qty-input">
+                        <div class="info-stok" style="font-size:12px; margin-top:5px;"></div>
+                    </td>
 
-                <td>
-                    <input type="text" name="items[${index}][keterangan]" class="input">
-                </td>
+                    <td>
+                        <textarea 
+                            name="items[${index}][keterangan]" 
+                            class="input keterangan-textarea"
+                            placeholder="Isi jika barang tidak tersedia"
+                        ></textarea>
+                    </td>
+                    <td>
+                        <input type="number" 
+                            name="items[${index}][harga_manual]" 
+                            class="input harga-input"
+                            placeholder="Harga"
+                            style="display:none;">
+                    </td>
+                    <td>
+                        <input type="file" name="items[${index}][image]" class="input">
+                    </td>
 
-                <td>
-                    <button type="button" class="btn btn-outline btn-hapus">Hapus</button>
-                </td>
-            </tr>
+                    <td>
+                        <button type="button" class="btn btn-outline btn-hapus">Hapus</button>
+                    </td>
+                </tr>
             `;
 
             table.insertAdjacentHTML('beforeend', row);
@@ -167,7 +194,11 @@ document.addEventListener('input', function(e){
         }
 
         let stok = parseInt(selected.dataset.stok || 0);
-        let harga = parseInt(selected.dataset.harga || 0);
+        let hargaManual = row.querySelector('.harga-input').value;
+
+        let harga = hargaManual 
+            ? parseInt(hargaManual) 
+            : parseInt(selected.dataset.harga || 0);
         let unit = selected.dataset.unit || '';
 
         let qty = parseInt(e.target.value || 0);
@@ -193,7 +224,25 @@ document.addEventListener('input', function(e){
     }
 
 });
-
 </script>
 
+<script>
+document.addEventListener('change', function(e){
+
+    if(e.target.classList.contains('barang-select')){
+
+        let row = e.target.closest('tr');
+        let hargaInput = row.querySelector('.harga-input');
+        let selectedText = e.target.options[e.target.selectedIndex].text;
+
+        if(selectedText.toLowerCase().includes('lain')){
+            hargaInput.style.display = 'block';
+        } else {
+            hargaInput.style.display = 'none';
+            hargaInput.value = '';
+        }
+    }
+
+});
+</script>
 @endsection

@@ -214,6 +214,7 @@
                 <thead>
                     <tr>
                         <th>Barang</th>
+                        <th>Keterangan</th>
                         <th>Qty</th>
                         <th>Gambar</th>
                     </tr>
@@ -328,7 +329,8 @@
                     data.details.forEach(item => {
                         html += `
                                     <tr>
-                                        <td>${item.barang?.nama_barang ?? item.keterangan}</td>
+                                        <td>${item.barang?.nama_barang }</td>
+                                        <td>${item.keterangan}</td>
                                         <td>${item.qty}</td>
                                         <td>
                                             ${item.image

@@ -59,6 +59,7 @@ class RequestController extends Controller
             'tanggal_request' => 'required|date',
             'items.*.qty' => 'required|integer|min:1',
             'items.*.image' => 'nullable|image|mimes:jpg,jpeg,png|max:2048',
+            'items.*.harga_manual' => 'nullable|integer',
         ]);
 
         $divisionId = auth()->user()->division_id;
@@ -110,6 +111,7 @@ class RequestController extends Controller
                 'barang_id' => $item['barang_id'] ?? null,
                 'qty' => $item['qty'],
                 'keterangan' => $item['keterangan'] ?? null,
+                'harga_manual' => $item['harga_manual'] ?? null,
                 'image' => $imagePath,
             ]);
         }

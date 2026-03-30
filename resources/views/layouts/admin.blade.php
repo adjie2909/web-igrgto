@@ -462,11 +462,22 @@
         <!-- SIDEBAR -->
         <div class="sidebar">
             <h2>Admin Panel</h2>
+            @php 
+                $user = auth()->user();
+            @endphp
 
-            <a href="/admin">Dashboard</a>
-            <a href="{{ route('user.index') }}">User</a>
-            <a href="{{ route('barang.index') }}">Barang</a>
-            <a href="{{ route('request.index') }}">Request</a>
+            {{-- HANYA ADMIN NON PGA --}}
+            @if($user->role == 'ADMIN' && $user->userid != 'PGA')
+                <a href="/dashboard">Dashboard</a>
+                <a href="{{ route('user.index') }}">User</a>
+                <a href="{{ route('request.index') }}">Request</a>
+            @endif
+
+            {{-- ADMIN + PGA --}}
+            @if($user->role == 'ADMIN')
+                <a href="{{ route('barang.index') }}">Barang</a>
+            @endif
+            
             <form method="POST" action="{{ route('logout') }}">
                 @csrf
                 <button class="btn btn-red">Logout</button>

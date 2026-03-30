@@ -21,6 +21,7 @@
                         <th>User</th>
                         <th>Divisi</th>
                         <th>Barang</th>
+                        <th>Keterangan</th>
                         <th>Qty</th>
                         <th>Status Stok</th>
                         <th>Estimasi</th>
@@ -34,7 +35,10 @@
                             @php
                                 $stok = $d->barang->stok ?? 0;
                                 $kurang = max(0, $d->qty - $stok);
-                                $estimasi = $kurang * ($d->barang->harga_estimasi ?? 0);
+                                $harga = $d->harga_manual 
+                                    ?? ($d->barang->harga_estimasi ?? 0);
+
+                                $estimasi = $kurang * $harga;
                             @endphp
 
                             <tr>
@@ -51,6 +55,7 @@
                                 <td>{{ $req->user->name }}</td>
                                 <td>{{ $req->user->division->nama_divisi ?? '-' }}</td>
                                 <td>{{ $d->barang->nama_barang ?? '-' }}</td>
+                                <td>{{ $d->keterangan ?? '-' }}</td>
                                 <td>{{ $d->qty }}</td>
 
                                 <td>
@@ -66,7 +71,11 @@
                             @php
                                 $stok = $d->barang->stok ?? 0;
                                 $kurang = max(0, $d->qty - $stok);
-                                $estimasi = $kurang * ($d->barang->harga_estimasi ?? 0);
+
+                                $harga = $d->harga_manual 
+                                    ?? ($d->barang->harga_estimasi ?? 0);
+
+                                $estimasi = $kurang * $harga;
 
                                 $totalItem++;
                                 $totalQty += $d->qty;
@@ -78,7 +87,7 @@
             </table>
             <div class="card" style="margin-top:20px; padding:15px; background:#f8fafc;">
 
-                <h3 style="margin-bottom:10px;">Ringkasan (Dipilih)</h3>
+                <h3 style="margin-bottom:10px;">Ringkasan (Total yang akan di-approve)</h3>
 
                 <div style="display:flex; gap:40px; font-size:16px;">
 
@@ -103,12 +112,16 @@
 
             </div>
             <button class="btn btn-blue" style="margin-top:20px;">
-                Approve Terpilih
+                Approve
             </button>
+            <p>*List yang tidak di-approve auto Reject</p>
 
         </form>
 
     </div>
+    <a href="{{ route('dashboard') }}" class="btn btn-outline">
+        Kembali
+    </a>
 <script>
 
 document.addEventListener('DOMContentLoaded', function(){

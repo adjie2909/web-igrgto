@@ -53,8 +53,8 @@
 
         <div style="display:flex; gap:10px;">
 
-            @if(in_array(auth()->user()->role, ['USER','SJM','PGA']))
-                <a href="/request"  class="btn btn-primary">
+            @if(in_array(auth()->user()->role, ['SJM', 'PGA']))
+                <a href="/request" class="btn btn-primary">
                     Lihat Request
                 </a>
             @endif
@@ -64,9 +64,9 @@
                 </a>
             @endif
             {{-- 🔥 BULK APPROVAL KHUSUS SAM & SM --}}
-            @if(in_array(auth()->user()->role, ['SAM','SM']))
+            @if(in_array(auth()->user()->role, ['SAM', 'SM']))
                 <a href="{{ route('approval.bulk') }}" class="btn btn-blue">
-                    Bulk Approval
+                    Approval Permintaan
                 </a>
             @endif
 
@@ -147,7 +147,9 @@
                 <thead>
                     <tr>
                         <th>Barang</th>
+                        <th>Keterangan</th>
                         <th>Qty</th>
+                        <th>Gambar</th>
                     </tr>
                 </thead>
                 <tbody id="d_items"></tbody>
@@ -161,58 +163,158 @@
     </div>
 
 
-<script>
-document.addEventListener('DOMContentLoaded', function () {
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
 
-    const modalDetail = document.getElementById('modalDetail');
-    const closeDetail = document.getElementById('closeDetail');
+            const modalDetail = document.getElementById('modalDetail');
+            const closeDetail = document.getElementById('closeDetail');
 
-    document.querySelectorAll('.btn-detail').forEach(btn => {
-        btn.addEventListener('click', function () {
+            document.querySelectorAll('.btn-detail').forEach(btn => {
+                btn.addEventListener('click', function () {
 
-            const data = JSON.parse(this.dataset.json);
+                    const data = JSON.parse(this.dataset.json);
 
-            // HEADER
-            document.getElementById('d_user').innerText = data.user?.name ?? '-';
-            document.getElementById('d_division').innerText = data.user?.division?.nama_divisi ?? '-';
-            document.getElementById('d_nomor').innerText = data.nomor_dokumen ?? '-';
-            document.getElementById('d_tanggal').innerText = formatTanggal(data.created_at);
+                    // HEADER
+                    document.getElementById('d_user').innerText = data.user?.name ?? '-';
+                    document.getElementById('d_division').innerText = data.user?.division?.nama_divisi ?? '-';
+                    document.getElementById('d_nomor').innerText = data.nomor_dokumen ?? '-';
+                    document.getElementById('d_tanggal').innerText = formatTanggal(data.created_at);
 
-            // DETAIL ITEMS (AMAN)
-            let html = '';
+                    // DETAIL ITEMS (AMAN)
+                    let html = '';
 
-            if (data.details && data.details.length > 0) {
-                data.details.forEach(item => {
-                    html += `
-                        <tr>
-                            <td>${item.barang?.nama_barang ?? item.keterangan ?? '-'}</td>
-                            <td>${item.qty ?? 0}</td>
-                        </tr>
-                    `;
+                    if (data.details && data.details.length > 0) {
+                        data.details.forEach(item => {
+                            html += `
+                            <tr>
+                                <td>${item.barang?.nama_barang ?? item.keterangan ?? '-'}</td>
+                                <td>${item.qty ?? 0}</td>
+                            </tr>
+                        `;
+                        });
+                    } else {
+                        html = `<tr><td colspan="2">Tidak ada data</td></tr>`;
+                    }
+
+                    document.getElementById('d_items').innerHTML = html;
+
+                    modalDetail.classList.add('show');
                 });
-            } else {
-                html = `<tr><td colspan="2">Tidak ada data</td></tr>`;
-            }
+            });
 
-            document.getElementById('d_items').innerHTML = html;
+            // CLOSE BUTTON
+            closeDetail.addEventListener('click', function () {
+                modalDetail.classList.remove('show');
+            });
 
-            modalDetail.classList.add('show');
+            // CLICK BACKGROUND CLOSE
+            window.addEventListener('click', function (e) {
+                if (e.target === modalDetail) {
+                    modalDetail.classList.remove('show');
+                }
+            });
+
         });
-    });
 
-    // CLOSE BUTTON
-    closeDetail.addEventListener('click', function () {
-        modalDetail.classList.remove('show');
-    });
+    </script>
 
-    // CLICK BACKGROUND CLOSE
-    window.addEventListener('click', function (e) {
-        if (e.target === modalDetail) {
-            modalDetail.classList.remove('show');
+    <!-- MODAL DETAIL -->
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+
+            const modalDetail = document.getElementById('modalDetail');
+            const closeDetail = document.getElementById('closeDetail');
+
+            document.querySelectorAll('.btn-detail').forEach(btn => {
+                btn.addEventListener('click', function () {
+
+                    const data = JSON.parse(this.dataset.json);
+
+                    // HEADER
+                    document.getElementById('d_user').innerText = data.user.name;
+                    document.getElementById('d_division').innerText = data.user.division?.nama_divisi ?? '-';
+                    document.getElementById('d_nomor').innerText = data.nomor_dokumen ?? '-';
+                    document.getElementById('d_tanggal').innerText = formatTanggal(data.created_at);
+
+                    // DETAIL ITEMS
+                    let html = '';
+
+                    data.details.forEach(item => {
+                        html += `
+                                        <tr>
+                                            <td>${item.barang?.nama_barang}</td>
+                                            <td>${item.keterangan ?? '-'}</td>
+                                            <td>${item.qty}</td>
+                                            <td>
+                                                ${item.image
+                                ? `<button class="btn btn-outline" onclick="showImage('${item.image}')">
+                                                            Lihat
+                                                    </button>`
+                                : '-'
+                            }
+                                            </td>
+                                        </tr>
+                                    `;
+                    });
+
+                    document.getElementById('d_items').innerHTML = html;
+
+                    modalDetail.classList.add('show');
+                });
+            });
+
+            // CLOSE BUTTON
+            closeDetail.addEventListener('click', function () {
+                modalDetail.classList.remove('show');
+            });
+
+            // CLICK BACKGROUND CLOSE
+            window.addEventListener('click', function (e) {
+                if (e.target === modalDetail) {
+                    modalDetail.classList.remove('show');
+                }
+            });
+
+        });
+    </script>
+
+    <script>
+        function showImage(img) {
+            const modal = document.createElement('div');
+
+            modal.style = `
+                position:fixed;
+                top:0;left:0;
+                width:100%;height:100%;
+                background:rgba(0,0,0,0.7);
+                display:flex;
+                align-items:center;
+                justify-content:center;
+                z-index:9999;
+            `;
+
+            modal.innerHTML = `
+                <div style="position:relative;">
+                    <img src="/storage/${img}" 
+                         style="max-width:80vw; max-height:80vh; border-radius:10px;">
+                    <button style="
+                        position:absolute;
+                        top:-10px; right:-10px;
+                        background:red; color:white;
+                        border:none; border-radius:50%;
+                        width:30px; height:30px; cursor:pointer;
+                    " onclick="this.parentElement.parentElement.remove()">×</button>
+                </div>
+            `;
+
+            modal.onclick = function (e) {
+                if (e.target === modal) {
+                    modal.remove();
+                }
+            };
+
+            document.body.appendChild(modal);
         }
-    });
-
-});
-
-</script>
+    </script>
 @endsection
