@@ -5,6 +5,21 @@
 <div class="card">
 
     <div class="header-modern">
+        @if(session('success'))
+        <div id="successPopup" style="
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #22c55e;
+            color: white;
+            padding: 12px 20px;
+            border-radius: 10px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+            z-index: 9999;
+        ">
+            {{ session('success') }}
+        </div>
+        @endif
         <div>
             <h2>Manajemen User</h2>
             <p>Kelola data user sistem</p>
@@ -58,11 +73,6 @@
                         )">
                         Edit
                     </button>
-                    <a href="{{ route('user.reset', $u->id) }}"
-                       class="btn btn-gray"
-                       onclick="return confirm('Reset password ke 123456?')">
-                        Reset
-                    </a>
 
                     <form action="{{ route('user.destroy', $u->id) }}" method="POST">
                         @csrf
@@ -152,10 +162,20 @@
                     </select>
                 </div>
 
+                <div class="form-group">
+                    <label>Password (opsional)</label>
+                    <input type="password" name="password" id="edit_password">
+                </div>
+
+                <div class="form-group">
+                    <label>Konfirmasi Password</label>
+                    <input type="password" name="password_confirmation" id="edit_password_confirm">
+                </div>
+
             </div>
 
             <div style="margin-top:15px;">
-                <button class="btn btn-blue">Update</button>
+                <button type="submit" class="btn btn-blue">Update</button>
                 <button type="button" class="btn btn-gray" onclick="closeModal()">Batal</button>
             </div>
 
@@ -165,31 +185,75 @@
 </div>
 
 <script>
+// ==========================
+// OPEN MODAL
+// ==========================
 function openEditModal(id, name, userid, email, division, role) {
 
     document.getElementById('edit_name').value = name;
     document.getElementById('edit_userid').value = userid;
     document.getElementById('edit_email').value = email;
-
     document.getElementById('edit_division').value = division;
     document.getElementById('edit_role').value = role;
 
     document.getElementById('editForm').action = '/admin/user/' + id;
 
+    // 🔥 reset password setiap buka
+    document.getElementById('edit_password').value = '';
+    document.getElementById('edit_password_confirm').value = '';
+
     document.getElementById('editModal').style.display = 'flex';
 }
 
+// ==========================
+// CLOSE MODAL
+// ==========================
 function closeModal() {
     document.getElementById('editModal').style.display = 'none';
 }
+
+
+// ==========================
+// VALIDASI SUBMIT
+// ==========================
+document.getElementById('editForm').addEventListener('submit', function(e){
+
+    let pass = document.getElementById('edit_password').value;
+    let confirm = document.getElementById('edit_password_confirm').value;
+
+    if(pass !== '' && pass !== confirm){
+        alert('Password dan konfirmasi password tidak sama');
+        e.preventDefault();
+    }
+
+});
+
+
+// ==========================
+// REALTIME VALIDASI
+// ==========================
+document.addEventListener('input', function(){
+
+    let pass = document.getElementById('edit_password');
+    let confirm = document.getElementById('edit_password_confirm');
+
+    if(confirm.value !== '' && pass.value !== confirm.value){
+        confirm.style.border = '2px solid red';
+    } else {
+        confirm.style.border = '';
+    }
+
+});
 </script>
+
+
 <script>
-let timer;
-function debounceSearch(el) {
-    clearTimeout(timer);
-    timer = setTimeout(() => {
-        el.form.submit();
-    }, 500);
-}
+setTimeout(() => {
+    let popup = document.getElementById('successPopup');
+    if(popup){
+        popup.style.opacity = '0';
+        setTimeout(() => popup.remove(), 500);
+    }
+}, 2000);
 </script>
 @endsection

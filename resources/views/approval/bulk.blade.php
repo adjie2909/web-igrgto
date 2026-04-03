@@ -111,7 +111,10 @@
                 </div>
 
             </div>
-            <button class="btn btn-blue" style="margin-top:20px;">
+            <button type="submit" 
+                class="btn btn-blue" 
+                style="margin-top:20px;"
+                onclick="return confirm('Yakin approve? Yang tidak dicentang akan di-reject')">
                 Approve
             </button>
             <p>*List yang tidak di-approve auto Reject</p>

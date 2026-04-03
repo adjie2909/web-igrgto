@@ -78,13 +78,15 @@
         <tr>
             <th>No</th>
             <th>Barang</th>
+            <th>Keterangan</th>
             <th>Qty</th>
         </tr>
 
         @foreach($req->details as $i => $d)
         <tr>
             <td>{{ $i+1 }}</td>
-            <td>{{ $d->barang->nama_barang ?? $d->keterangan }}</td>
+            <td>{{ $d->barang->nama_barang }}</td>
+            <td>{{ $d->keterangan  }}</td>
             <td>{{ $d->qty }}</td>
         </tr>
         @endforeach

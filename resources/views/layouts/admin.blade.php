@@ -50,8 +50,9 @@
             flex: 1;
             display: flex;
             justify-content: center;
-            align-items: center;
+            align-items: flex-start; /* 🔥 WAJIB GANTI */
             padding: 40px;
+            overflow-y: auto;        /* 🔥 WAJIB TAMBAH */
         }
 
         /* CARD */

@@ -148,9 +148,9 @@ class ApprovalController extends Controller
         $ids = $request->ids ?? [];
 
         // Validasi jika tidak ada yang dipilih
-        if (empty($ids)) {
-            return back()->with('error', 'Tidak ada data yang dipilih');
-        }
+        // if (empty($ids)) {
+        //     return back()->with('error', 'Tidak ada data yang dipilih');
+        // }
 
         $level = $user->role == 'SAM' ? 2 : 3;
 

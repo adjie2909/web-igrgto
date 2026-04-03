@@ -81,6 +81,7 @@
         <tr>
             <th>No</th>
             <th>Barang</th>
+            <th>Keterangan</th>
             <th>Qty</th>
             <th>Estimasi Biaya</th>
             <th>Cek</th>
@@ -101,7 +102,8 @@
 
             <tr>
                 <td>{{ $i + 1 }}</td>
-                <td>{{ $d->barang->nama_barang ?? $d->keterangan }}</td>
+                <td>{{ $d->barang->nama_barang}}</td>
+                <td>{{ $d->keterangan }}</td>
                 <td>{{ $d->qty }}</td>
 
                 <td>

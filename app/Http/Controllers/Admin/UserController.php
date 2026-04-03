@@ -62,16 +62,24 @@ class UserController extends Controller
             'email' => 'required|email',
             'division_id' => 'required',
             'role' => 'required',
+            'password' => 'nullable|confirmed|min:6',
         ]);
 
-        $user->update([
+        $data = [
             'name' => ucwords(strtolower($request->name)),
             'userid' => strtoupper($request->userid),
             'email' => $request->email,
             'division_id' => $request->division_id,
             'role' => $request->role,
-        ]);
+        ];
 
+        // 🔥 tambahkan password kalau diisi
+        if ($request->filled('password')) {
+            $data['password'] = Hash::make($request->password);
+        }
+
+        // 🔥 update pakai $data
+        $user->update($data);
         return redirect()->route('user.index')
             ->with('success', 'User berhasil diupdate');
     }
@@ -88,16 +96,5 @@ class UserController extends Controller
         $user->delete();
 
         return back()->with('success', 'User berhasil dihapus');
-    }
-
-    // 🔥 RESET PASSWORD
-    public function resetPassword($id)
-    {
-        $user = User::findOrFail($id);
-
-        $user->password = Hash::make('123456');
-        $user->save();
-
-        return back()->with('success', 'Password direset ke 123456');
     }
 }
