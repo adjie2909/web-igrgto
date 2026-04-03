@@ -167,8 +167,8 @@
 
             <h3>Berhasil</h3>
 
-            <p style="font-size:14px; color:#64748b;">
-                Request berhasil dikirim
+            <p style="font-size:14px; color:#64748b;" id="successMessage">
+                {{ session('success') }}
             </p>
 
             <button class="btn btn-primary" id="btnCloseSuccess">
@@ -258,51 +258,35 @@
             }
 
 
-            // MODAL SUCCESS
 
-            const modalSuccess = document.getElementById('modalSuccess');
-            const btnCloseSuccess = document.getElementById('btnCloseSuccess');
-
-            @if(session('success'))
-                setTimeout(() => {
-                    modalSuccess.classList.add('show');
-                }, 100);
-
-                if (btnCloseSuccess) {
-                    btnCloseSuccess.addEventListener('click', function () {
-                        modalSuccess.classList.remove('show');
-                    });
-                }
-
-                setTimeout(() => {
-                    modalSuccess.classList.remove('show');
-                }, 3000);
-            @endif
-
-                });
-
-        document.addEventListener('DOMContentLoaded', function () {
-
-            @if(session('success'))
-                const modalSuccess = document.getElementById('modalSuccess');
-                const btnCloseSuccess = document.getElementById('btnCloseSuccess');
-
-                setTimeout(() => {
-                    modalSuccess.classList.add('show');
-                }, 100);
-
-                btnCloseSuccess.addEventListener('click', function () {
-                    modalSuccess.classList.remove('show');
-                });
-
-                setTimeout(() => {
-                    modalSuccess.classList.remove('show');
-                }, 3000);
-            @endif
-
-                });
     </script>
 
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+
+    @if(session('success'))
+
+        const modal = document.getElementById('modalSuccess');
+        const btn = document.getElementById('btnCloseSuccess');
+
+        if(modal){
+            modal.classList.add('show');
+
+            if(btn){
+                btn.onclick = function(){
+                    modal.classList.remove('show');
+                }
+            }
+
+            setTimeout(() => {
+                modal.classList.remove('show');
+            }, 3000);
+        }
+
+    @endif
+
+});
+</script>
 
     <!-- MODAL DETAIL -->
 
@@ -330,7 +314,7 @@
                         html += `
                                     <tr>
                                         <td>${item.barang?.nama_barang }</td>
-                                        <td>${item.keterangan}</td>
+                                        <td>${item.keterangan ?? "-"}</td>
                                         <td>${item.qty}</td>
                                         <td>
                                             ${item.image
@@ -389,7 +373,7 @@
             modal.innerHTML = `
             <div style="position:relative;">
                 <img src="/storage/${img}" 
-                     style="max-width:80vw; max-height:80vh; border-radius:10px;">
+                style="max-width:80vw; max-height:80vh; border-radius:10px;">
                 <button style="
                     position:absolute;
                     top:-10px; right:-10px;
@@ -416,4 +400,5 @@
         });
     }
     </script>
+
 @endsection

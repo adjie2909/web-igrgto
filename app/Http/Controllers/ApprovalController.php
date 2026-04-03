@@ -60,7 +60,7 @@ class ApprovalController extends Controller
 
         $request->save();
 
-        return back()->with('success', 'Berhasil approve');
+        return back()->with('success', 'Permintaan barang berhasil diapprove');
     }
 
     /**
@@ -103,7 +103,7 @@ class ApprovalController extends Controller
         $req->rejected_at = now();
         $req->save();
 
-        return back()->with('success', 'Request ditolak');
+        return back()->with('success', 'Permintaan barang ditolak');
     }
 
     /**
@@ -190,7 +190,7 @@ class ApprovalController extends Controller
                 'rejected_at' => now(),
                 'reject_reason' => 'Auto reject (bulk approval)'
             ]);
-
-        return back()->with('success', 'Bulk approval berhasil');
+        $role = $user->role;
+        return back()->with('success', "Permintaan berhasil diapprove oleh $role");
     }
 }

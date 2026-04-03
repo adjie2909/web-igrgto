@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\RequestHeader;
+use Carbon\Carbon;
 
 class DashboardController extends Controller
 {
@@ -19,6 +20,11 @@ class DashboardController extends Controller
         // BASE QUERY
         // ===============================
         $query = RequestHeader::query();
+
+        $now = Carbon::now();
+
+        $query->whereMonth('tanggal_request', $now->month)
+            ->whereYear('tanggal_request', $now->year);
 
         // ===============================
         // FILTER DIVISI

@@ -11,7 +11,7 @@
             Jika barang tidak tersedia didalam master barang, harap isi di keterangan
         </p>
 
-        <form method="POST" action="{{ route('request.store') }}" enctype="multipart/form-data">
+        <form id="form-request" method="POST" action="{{ route('request.store') }}" enctype="multipart/form-data">
             @csrf
 
             <!-- TANGGAL -->
@@ -36,13 +36,9 @@
                         <select name="items[${index}][barang_id]" class="input barang-select">
                             <option value="">-- Pilih Barang --</option>
                             @foreach($barangs as $barang)
-                                <option 
-                                    value="{{ $barang->id }}"
-                                    data-stok="{{ $barang->stok }}"
-                                    data-harga="{{ $barang->harga_estimasi }}"
-                                    data-unit="{{ $barang->unit }}"
-                                    data-terpakai="{{ $barang->total_request ?? 0 }}"
-                                >
+                                <option value="{{ $barang->id }}" data-stok="{{ $barang->stok }}"
+                                    data-harga="{{ $barang->harga_estimasi }}" data-unit="{{ $barang->unit }}"
+                                    data-terpakai="{{ $barang->total_request ?? 0 }}">
                                     {{ $barang->nama_barang }}
                                 </option>
                             @endforeach
@@ -55,18 +51,12 @@
                     </td>
 
                     <td>
-                        <textarea 
-                            name="items[${index}][keterangan]" 
-                            class="input keterangan-textarea"
-                            placeholder="Isi jika barang tidak tersedia"
-                        ></textarea>
+                        <textarea name="items[${index}][keterangan]" class="input keterangan-textarea"
+                            placeholder="Isi jika barang tidak tersedia"></textarea>
                     </td>
                     <td>
-                        <input type="number" 
-                            name="items[${index}][harga_manual]" 
-                            class="input harga-input"
-                            placeholder="Harga"
-                            style="display:none;">
+                        <input type="number" name="items[${index}][harga_manual]" class="input harga-input"
+                            placeholder="Harga" style="display:none;">
                     </td>
                     <td>
                         <input type="file" name="items[${index}][image]" class="input">
@@ -89,157 +79,210 @@
 
         </form>
     </div>
-
-    <script>
-        let index = 1;
-
-        document.getElementById('btn-tambah').addEventListener('click', function () {
-
-            let table = document.getElementById('table-barang');
-
-            let row = `
-                <tr>
-                    <td>
-                        <select name="items[${index}][barang_id]" class="input barang-select">
-                            <option value="">-- Pilih Barang --</option>
-                            @foreach($barangs as $barang)
-                                <option 
-                                    value="{{ $barang->id }}"
-                                    data-stok="{{ $barang->stok }}"
-                                    data-harga="{{ $barang->harga_estimasi }}"
-                                    data-unit="{{ $barang->unit }}"
-                                    data-terpakai="{{ $barang->total_request ?? 0 }}"
-                                >
-                                    {{ $barang->nama_barang }}
-                                </option>
-                            @endforeach
-                        </select>
-                    </td>
-
-                    <td>
-                        <input type="number" name="items[${index}][qty]" class="input qty-input">
-                        <div class="info-stok" style="font-size:12px; margin-top:5px;"></div>
-                    </td>
-
-                    <td>
-                        <textarea 
-                            name="items[${index}][keterangan]" 
-                            class="input keterangan-textarea"
-                            placeholder="Isi jika barang tidak tersedia"
-                        ></textarea>
-                    </td>
-                    <td>
-                        <input type="number" 
-                            name="items[${index}][harga_manual]" 
-                            class="input harga-input"
-                            placeholder="Harga"
-                            style="display:none;">
-                    </td>
-                    <td>
-                        <input type="file" name="items[${index}][image]" class="input">
-                    </td>
-
-                    <td>
-                        <button type="button" class="btn btn-outline btn-hapus">Hapus</button>
-                    </td>
-                </tr>
-            `;
-
-            table.insertAdjacentHTML('beforeend', row);
-
-            index++;
-        });
-
-        document.addEventListener('click', function (e) {
-            if (e.target.classList.contains('btn-hapus')) {
-                e.target.closest('tr').remove();
-            }
-        });
-    </script>
 <script>
+let index = 1;
 
+// ===============================
+// FORMAT RUPIAH
+// ===============================
 function formatRupiah(angka) {
     return 'Rp ' + angka.toLocaleString('id-ID');
 }
 
-// 🔥 EVENT SAAT PILIH BARANG
-document.addEventListener('change', function(e){
+// ===============================
+// TAMBAH ROW
+// ===============================
+document.getElementById('btn-tambah').addEventListener('click', function () {
 
-    if(e.target.classList.contains('barang-select')){
+    let table = document.getElementById('table-barang');
 
-        let row = e.target.closest('tr');
-        let selected = e.target.options[e.target.selectedIndex];
+    let row = `
+        <tr>
+            <td>
+                <select name="items[${index}][barang_id]" class="input barang-select">
+                    <option value="">-- Pilih Barang --</option>
+                    @foreach($barangs as $barang)
+                        <option 
+                            value="{{ $barang->id }}"
+                            data-stok="{{ $barang->stok }}"
+                            data-harga="{{ $barang->harga_estimasi }}"
+                            data-unit="{{ $barang->unit }}"
+                        >
+                            {{ $barang->nama_barang }}
+                        </option>
+                    @endforeach
+                </select>
+            </td>
 
-        let stok = parseInt(selected.dataset.stok || 0);
-        let unit = selected.dataset.unit || '';
+            <td>
+                <input type="number" name="items[${index}][qty]" class="input qty-input">
+                <div class="info-stok" style="font-size:12px; margin-top:5px;"></div>
+            </td>
 
-        let info = row.querySelector('.info-stok');
+            <td>
+                <textarea 
+                    name="items[${index}][keterangan]" 
+                    class="input"
+                    placeholder="Isi jika barang tidak tersedia"
+                ></textarea>
+            </td>
 
-        info.innerHTML = `Stok tersedia: <b>${stok} ${unit}</b>`;
-    }
+            <td>
+                <input type="number" 
+                    name="items[${index}][harga_manual]" 
+                    class="input harga-input"
+                    placeholder="Harga"
+                    style="display:none;">
+            </td>
 
+            <td>
+                <input type="file" name="items[${index}][image]" class="input">
+            </td>
+
+            <td>
+                <button type="button" class="btn btn-outline btn-hapus">Hapus</button>
+            </td>
+        </tr>
+    `;
+
+    table.insertAdjacentHTML('beforeend', row);
+    index++;
 });
 
-// 🔥 EVENT SAAT INPUT QTY (INI YANG BELUM JALAN)
-document.addEventListener('input', function(e){
 
-    if(e.target.classList.contains('qty-input')){
-
-        let row = e.target.closest('tr');
-        let select = row.querySelector('.barang-select');
-        let selected = select.options[select.selectedIndex];
-
-        if(!select.value){
-            return;
-        }
-
-        let stok = parseInt(selected.dataset.stok || 0);
-        let hargaManual = row.querySelector('.harga-input').value;
-
-        let harga = hargaManual 
-            ? parseInt(hargaManual) 
-            : parseInt(selected.dataset.harga || 0);
-        let unit = selected.dataset.unit || '';
-
-        let qty = parseInt(e.target.value || 0);
+// ===============================
+// HAPUS ROW
+// ===============================
+document.addEventListener('click', function (e) {
+    if (e.target.classList.contains('btn-hapus')) {
+        e.target.closest('tr').remove();
+    }
+});
 
 
-        let kurang = Math.max(0, qty- stok);
-        let estimasi = kurang * harga;
+// ===============================
+// HITUNG ESTIMASI (CORE LOGIC)
+// ===============================
+function hitungEstimasi(row){
 
-        let info = row.querySelector('.info-stok');
+    let select = row.querySelector('.barang-select');
+    let qtyInput = row.querySelector('.qty-input');
+    let hargaInput = row.querySelector('.harga-input');
 
-        let html = `
-        <span>Stok: <b>${stok} ${unit}</b></span><br>
-        `;
+    if(!select || !qtyInput) return;
 
-        if(kurang > 0){
-            html += `<span style="color:red;">Kekurangan: ${kurang}</span><br>`;
-            html += `<span style="color:green;">Estimasi Biaya: ${formatRupiah(estimasi)}</span>`;
-        } else {
-            html += `<span style="color:green;">✔️ Stok cukup</span>`;
-        }
+    let selected = select.options[select.selectedIndex];
 
-        info.innerHTML = html;
+    let stok = parseInt(selected.dataset.stok || 0);
+    let hargaDefault = parseInt(selected.dataset.harga || 0);
+    let unit = selected.dataset.unit || '';
+
+    let hargaManual = parseInt(hargaInput.value || 0);
+    let harga = hargaManual > 0 ? hargaManual : hargaDefault;
+
+    let qty = parseInt(qtyInput.value || 0);
+
+    let kurang = Math.max(0, qty - stok);
+    let estimasi = kurang * harga;
+
+    let info = row.querySelector('.info-stok');
+
+    let html = `<span>Stok: <b>${stok} ${unit}</b></span><br>`;
+
+    if(kurang > 0){
+        html += `<span style="color:red;">Kekurangan: ${kurang}</span><br>`;
+        html += `<span style="color:green;">Estimasi Biaya: ${formatRupiah(estimasi)}</span>`;
+    } else {
+        html += `<span style="color:green;">✔️ Stok cukup</span>`;
     }
 
-});
-</script>
+    info.innerHTML = html;
+}
 
-<script>
+
+// ===============================
+// EVENT: PILIH BARANG
+// ===============================
 document.addEventListener('change', function(e){
 
     if(e.target.classList.contains('barang-select')){
 
         let row = e.target.closest('tr');
         let hargaInput = row.querySelector('.harga-input');
-        let selectedText = e.target.options[e.target.selectedIndex].text;
 
-        if(selectedText.toLowerCase().includes('lain')){
+        let selectedText = e.target.options[e.target.selectedIndex].text.toLowerCase();
+
+        // 🔥 tampilkan harga manual jika lain-lain
+        if(selectedText.includes('lain')){
             hargaInput.style.display = 'block';
+            hargaInput.placeholder = 'Wajib isi harga';
         } else {
             hargaInput.style.display = 'none';
             hargaInput.value = '';
+        }
+
+        hitungEstimasi(row);
+    }
+
+});
+
+
+// ===============================
+// EVENT: QTY INPUT
+// ===============================
+document.addEventListener('input', function(e){
+
+    if(e.target.classList.contains('qty-input')){
+        let row = e.target.closest('tr');
+        hitungEstimasi(row);
+    }
+
+});
+
+
+// ===============================
+// EVENT: HARGA MANUAL INPUT
+// ===============================
+document.addEventListener('input', function(e){
+
+    if(e.target.classList.contains('harga-input')){
+        let row = e.target.closest('tr');
+        hitungEstimasi(row);
+    }
+
+});
+
+
+// ===============================
+// VALIDASI SUBMIT
+// ===============================
+document.getElementById('form-request').addEventListener('submit', function(e){
+
+    let rows = document.querySelectorAll('#table-barang tr');
+
+    for(let i = 1; i < rows.length; i++){
+
+        let row = rows[i];
+
+        let select = row.querySelector('.barang-select');
+        let harga = row.querySelector('.harga-input');
+
+        if(!select) continue;
+
+        let selectedOption = select.options[select.selectedIndex];
+        let selectedText = selectedOption ? selectedOption.text.toLowerCase() : '';
+
+        if(selectedText.includes('lain')){
+            if(!harga.value || parseInt(harga.value) <= 0){
+
+                alert('Barang "Lain-lain" wajib mengisi estimasi harga!');
+
+                harga.focus();
+                harga.style.border = '2px solid red';
+
+                e.preventDefault();
+                return false; // 🔥 PENTING
+            }
         }
     }
 

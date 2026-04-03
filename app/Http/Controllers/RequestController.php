@@ -195,7 +195,7 @@ class RequestController extends Controller
         $req->save();
 
         return redirect()->route('request.index')
-            ->with('success', 'Request sedang diproses');
+            ->with('success', 'PGA segera proses permintaan barang');
     }
 
 
@@ -249,8 +249,10 @@ class RequestController extends Controller
         $req->nomor_serah = $nomorSerah;
         $req->save();
 
-        return redirect()->route('request.index')
-            ->with('print_serah', $req->id);
+        return redirect()->route('request.index')->with([
+                'print_serah' => $req->id,
+                'success' => 'Permintaan barang selesai diproses'
+            ]);
     }
 
 

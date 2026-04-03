@@ -193,4 +193,30 @@ document.addEventListener('DOMContentLoaded', function(){
 });
 
 </script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+
+    @if(session('success'))
+
+        const modal = document.getElementById('modalSuccess');
+        const btn = document.getElementById('btnCloseSuccess');
+
+        if(modal){
+            modal.classList.add('show');
+
+            if(btn){
+                btn.onclick = function(){
+                    modal.classList.remove('show');
+                }
+            }
+
+            setTimeout(() => {
+                modal.classList.remove('show');
+            }, 3000);
+        }
+
+    @endif
+
+});
+</script>
 @endsection
