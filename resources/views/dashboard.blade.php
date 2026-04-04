@@ -3,8 +3,8 @@
 @section('content')
 
 
-    <div class="card">
-        <h1>Dashboard Permintaan Barang GA</h1>
+    <div style="margin-bottom:15px;">
+        <h2>Dashboard Ticketing Complain</h2>
 
         <div style="display:flex; gap:30px; font-size:28px; color:#475569;">
             <div><b>Nama:</b> {{ auth()->user()->name }}</div>

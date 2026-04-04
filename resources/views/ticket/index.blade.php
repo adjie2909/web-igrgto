@@ -2,39 +2,51 @@
 
 @section('content')
 
-<div class="card">
 
-    <h2>Ticketing Complain</h2>
 
     {{-- ========================= --}}
-    {{-- DASHBOARD SUMMARY --}}
+    {{-- HEADER --}}
+    {{-- ========================= --}}
+    <div style="margin-bottom:15px;">
+        <h2>Dashboard Ticketing Complain</h2>
+
+        <div style="display:flex; gap:30px; font-size:28px; color:#475569;">
+            <div><b>Nama:</b> {{ auth()->user()->name }}</div>
+            <div><b>Divisi:</b> {{ auth()->user()->division->nama_divisi ?? '-' }}</div>
+            <div><b>Role:</b> {{ auth()->user()->role }}</div>
+        </div>
+    </div>
+
+    {{-- ========================= --}}
+    {{-- SUMMARY BOX --}}
     {{-- ========================= --}}
     <div style="display:flex; gap:15px; margin-bottom:20px;">
 
-        <div class="stat-box" style="background:#e0f2fe;">
-            <div>Total</div>
-            <h3>{{ $total }}</h3>
+        <div class="stat-card bg-total">
+            <div class="stat-title">Total Ticket</div>
+            <div class="stat-value">{{ $total }}</div>
         </div>
 
-        <div class="stat-box" style="background:#fef9c3;">
-            <div>Open</div>
-            <h3>{{ $open }}</h3>
+        <div class="stat-card bg-pending">
+            <div class="stat-title">Total Open</div>
+            <div class="stat-value">{{ $open }}</div>
         </div>
 
-        <div class="stat-box" style="background:#dbeafe;">
-            <div>Diproses</div>
-            <h3>{{ $proses }}</h3>
+        <div class="stat-card bg-proses">
+            <div class="stat-title">Total Dalam Pengecekan</div>
+            <div class="stat-value">{{ $proses }}</div>
         </div>
 
-        <div class="stat-box" style="background:#dcfce7;">
-            <div>Selesai</div>
-            <h3>{{ $selesai }}</h3>
+        <div class="stat-card bg-selesai">
+            <div class="stat-title">Selesai</div>
+            <div class="stat-value">{{ $selesai }}</div>
         </div>
+
 
     </div>
 
     {{-- ========================= --}}
-    {{-- USER BUTTON --}}
+    {{-- BUTTON --}}
     {{-- ========================= --}}
     @if(!in_array($divisionId, [9,10]))
         <a href="{{ route('ticket.create') }}" class="btn btn-blue">
@@ -42,52 +54,63 @@
         </a>
     @endif
 
-    <br><br>
+    {{-- ========================= --}}
+    {{-- LIST TERBARU --}}
+    {{-- ========================= --}}
+ <div class="card" style="margin-top:25px;">
+    <div>
+        <h4>Ticket Terbaru</h4>
 
-    <table>
-        <tr>
-            <th>Judul</th>
-            <th>Status</th>
-            <th>Handler</th>
-            <th>Aksi</th>
-        </tr>
+        <table>
+            <thead>
+                <tr>
+                    <th>Judul</th>
+                    <th>Handler</th>
+                    <th>Status</th>
+                    <th>Tanggal</th>
+                    <th>Detail</th>
+                </tr>
+            </thead>
 
-        @foreach($tickets as $t)
-        <tr>
+            <tbody>
+                @foreach($tickets->take(5) as $t)
+                <tr>
 
-            <td>{{ $t->judul }}</td>
+                    <td>{{ $t->judul }}</td>
 
-            {{-- STATUS --}}
-            <td>
-                @if($t->status == 0)
-                    <span class="badge badge-blue">Open</span>
-                @elseif($t->status == 1)
-                    <span class="badge badge-orange">Diproses</span>
-                @else
-                    <span class="badge badge-green">Selesai</span>
-                @endif
-            </td>
+                    {{-- HANDLER --}}
+                    <td>
+                        @if($t->level == 1)
+                            EDP
+                        @else
+                            PGA
+                        @endif
+                    </td>
 
-            {{-- HANDLER --}}
-            <td>
-                @if($t->level == 1)
-                    EDP
-                @else
-                    PGA
-                @endif
-            </td>
+                    {{-- STATUS --}}
+                    <td>
+                        @if($t->status == 0)
+                            <span class="badge badge-blue">Open</span>
+                        @elseif($t->status == 1)
+                            <span class="badge badge-orange">Diproses</span>
+                        @else
+                            <span class="badge badge-green">Selesai</span>
+                        @endif
+                    </td>
 
-            {{-- AKSI --}}
-            <td>
-                <a href="{{ route('ticket.show', $t->id) }}" class="btn btn-outline">
-                    Detail
-                </a>
-            </td>
+                    <td>{{ $t->created_at->format('d-m-Y') }}</td>
 
-        </tr>
-        @endforeach
+                    <td>
+                        <a href="{{ route('ticket.show', $t->id) }}" class="btn btn-outline">
+                            Detail
+                        </a>
+                    </td>
 
-    </table>
+                </tr>
+                @endforeach
+            </tbody>
+        </table>
+    </div>
 
 </div>
 

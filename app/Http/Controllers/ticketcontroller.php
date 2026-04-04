@@ -25,10 +25,15 @@ class TicketController extends Controller
 
         if ($divisionId == self::DIV_EDP) {
 
-            // 🔥 EDP handle level 1
-            $tickets = Ticket::where('level', 1)->latest()->get();
+            $tickets = Ticket::where(function ($q) use ($user) {
+                $q->where('level', 1)
+                ->orWhere('user_id', $user->id)
+                ->orWhereHas('replies', function ($r) use ($user) {
+                    $r->where('user_id', $user->id);
+                });
+            })->latest()->get();
 
-        } elseif ($divisionId == self::DIV_PGA) {
+        }elseif ($divisionId == self::DIV_PGA) {
 
             // 🔥 PGA handle level 2
             $tickets = Ticket::where('level', 2)->latest()->get();
@@ -82,6 +87,18 @@ class TicketController extends Controller
     public function show($id)
     {
         $ticket = Ticket::with('replies.user')->findOrFail($id);
+        $user = auth()->user();
+
+        // =========================
+        // 🔥 AUTO UPDATE STATUS
+        // =========================
+        if (
+            $user->division_id == 9 &&   // EDP
+            $ticket->status == 0         // masih OPEN
+        ) {
+            $ticket->status = 1; // jadi DIPROSES
+            $ticket->save();
+        }
 
         return view('ticket.show', compact('ticket'));
     }

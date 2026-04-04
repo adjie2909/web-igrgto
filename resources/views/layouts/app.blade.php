@@ -483,18 +483,17 @@
         .stat-box {
             flex:1;
             padding:15px;
-            border-radius:10px;
+            border-radius:12px;
             text-align:center;
             font-size:14px;
         }
 
         /* BADGE */
         .badge {
-            padding: 4px 10px;
-            border-radius: 8px;
-            font-size: 12px;
-            margin-left: 10px;
-            color: white;
+            padding:4px 10px;
+            border-radius:8px;
+            font-size:12px;
+            color:white;
         }
 
         .badge-blue { background: #3b82f6; }

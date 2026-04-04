@@ -390,6 +390,7 @@ document.addEventListener('DOMContentLoaded', function () {
             document.body.appendChild(modal);
         }
     </script>
+    
     <script>
     document.getElementById('checkAll').onclick = function(){
         document.querySelectorAll('input[name="ids[]"]').forEach(cb => {
