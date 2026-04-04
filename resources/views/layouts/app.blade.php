@@ -307,6 +307,16 @@
             opacity: 1;
         }
 
+        .modal-success {
+            display:none;
+            opacity:0;
+            transition:0.3s;
+        }
+
+        .modal-success.show {
+            display:flex;
+            opacity:1;
+        }
         /* ICON */
         .success-icon {
             font-size: 40px;
@@ -521,7 +531,7 @@
 
                 <!-- DASHBOARD -->
                 <a href="{{ route('dashboard') }}"
-                class="nav-link {{ request()->is('dashboard*') ? 'active' : '' }}">
+                class="nav-link {{ request()->is('dashboard*') || request()->is('request*') ? 'active' : '' }}">
                     Permintaan Barang
                 </a>
 
@@ -556,6 +566,51 @@
         @yield('content')
     </div>
 
+@if(session('success'))
+<div id="modalSuccess" class="modal modal-success">
+    <div class="modal-content success-content">
+
+        <div class="success-icon">✔</div>
+
+        <h3>Berhasil</h3>
+
+        <p style="font-size:14px; color:#64748b;">
+            {{ session('success') }}
+        </p>
+
+        <button class="btn btn-primary" id="btnCloseSuccess">
+            OK
+        </button>
+
+    </div>
+</div>
+@endif
 </body>
 
 </html>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+
+    @if(session('success'))
+
+        const modal = document.getElementById('modalSuccess');
+        const btn = document.getElementById('btnCloseSuccess');
+
+        if(modal){
+            modal.classList.add('show');
+
+            if(btn){
+                btn.onclick = function(){
+                    modal.classList.remove('show');
+                }
+            }
+
+            setTimeout(() => {
+                modal.classList.remove('show');
+            }, 3000);
+        }
+
+    @endif
+
+});
+</script>

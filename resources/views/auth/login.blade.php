@@ -30,14 +30,17 @@
             <!-- USERID -->
             <div class="form-group">
                 <label>User ID</label>
+
                 <input 
                     type="text" 
                     name="userid" 
                     id="userid" 
                     class="input" 
                     maxlength="3" 
-                    value="{{ old('userid') }}" {{-- 🔥 biar tetap ada --}}
+                    value="{{ old('userid') }}" 
                     required>
+
+
             </div>
 
             <!-- PASSWORD -->
@@ -54,10 +57,10 @@
                 </div>
             </div>
 
-            <!-- REMEMBER -->
+            <!-- REMEMBER
             <div style="margin-bottom:15px; font-size:13px;">
                 <input type="checkbox" name="remember"> Remember me
-            </div>
+            </div> -->
 
             <!-- BUTTON -->
             <button class="btn btn-primary" style="width:100%; margin-top:5px;">
@@ -105,5 +108,9 @@ function togglePassword(id, el) {
     }
 }
 </script>
-
+<!-- @if ($errors->has('userid'))
+<script>
+    alert("{{ $errors->first('userid') }}");
+</script>
+@endif -->
 @endsection

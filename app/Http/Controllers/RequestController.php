@@ -59,6 +59,7 @@ class RequestController extends Controller
             'tanggal_request' => 'required|date',
             'items.*.qty' => 'required|integer|min:1',
             'items.*.image' => 'nullable|image|mimes:jpg,jpeg,png|max:2048',
+            'items.*.harga_manual' => 'nullable|integer',
         ]);
 
         $divisionId = auth()->user()->division_id;
@@ -110,6 +111,7 @@ class RequestController extends Controller
                 'barang_id' => $item['barang_id'] ?? null,
                 'qty' => $item['qty'],
                 'keterangan' => $item['keterangan'] ?? null,
+                'harga_manual' => $item['harga_manual'] ?? null,
                 'image' => $imagePath,
             ]);
         }
@@ -193,7 +195,7 @@ class RequestController extends Controller
         $req->save();
 
         return redirect()->route('request.index')
-            ->with('success', 'Request sedang diproses');
+            ->with('success', 'PGA segera proses permintaan barang');
     }
 
 
@@ -247,8 +249,10 @@ class RequestController extends Controller
         $req->nomor_serah = $nomorSerah;
         $req->save();
 
-        return redirect()->route('request.index')
-            ->with('print_serah', $req->id);
+        return redirect()->route('request.index')->with([
+                'print_serah' => $req->id,
+                'success' => 'Permintaan barang selesai diproses'
+            ]);
     }
 
 

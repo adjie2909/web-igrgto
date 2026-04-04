@@ -7,6 +7,11 @@
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
             <h2>List Request</h2>
 
+            @if(auth()->user()->role == 'SAM' || auth()->user()->role == 'SM')
+                <a href="{{ route('approval.bulk') }}" class="btn btn-blue">
+                    Bulk Approval
+                </a>
+            @endif
             <a href="/request/create" class="btn btn-primary">
                 + Buat Request
             </a>
@@ -98,16 +103,18 @@
                                 </a>
                             @endif
 
-
+                            
                             {{-- PGA SELESAI --}}
                             @if($user->role == 'PGA' && $req->status == 2)
                                 <button class="btn btn-outline btn-detail" data-json='@json($req)'>
                                     Detail
                                 </button>
-                                <a class="btn btn-outline" href="{{ route('selesai', $req->id) }}">
+                                <a class="btn btn-outline" href="{{ route('selesai', $req->id) }}" target="_blank"
+                                    onclick="window.open('{{ route('request.pdf.serah', $req->id) }}', '_blank')">
                                     Selesai
                                 </a>
                             @endif
+
 
 
                             {{-- DEFAULT --}}
@@ -162,8 +169,8 @@
 
             <h3>Berhasil</h3>
 
-            <p style="font-size:14px; color:#64748b;">
-                Request berhasil dikirim
+            <p style="font-size:14px; color:#64748b;" id="successMessage">
+                {{ session('success') }}
             </p>
 
             <button class="btn btn-primary" id="btnCloseSuccess">
@@ -209,6 +216,7 @@
                 <thead>
                     <tr>
                         <th>Barang</th>
+                        <th>Keterangan</th>
                         <th>Qty</th>
                         <th>Gambar</th>
                     </tr>
@@ -252,51 +260,35 @@
             }
 
 
-            // MODAL SUCCESS
 
-            const modalSuccess = document.getElementById('modalSuccess');
-            const btnCloseSuccess = document.getElementById('btnCloseSuccess');
-
-            @if(session('success'))
-                setTimeout(() => {
-                    modalSuccess.classList.add('show');
-                }, 100);
-
-                if (btnCloseSuccess) {
-                    btnCloseSuccess.addEventListener('click', function () {
-                        modalSuccess.classList.remove('show');
-                    });
-                }
-
-                setTimeout(() => {
-                    modalSuccess.classList.remove('show');
-                }, 3000);
-            @endif
-
-                });
-
-        document.addEventListener('DOMContentLoaded', function () {
-
-            @if(session('success'))
-                const modalSuccess = document.getElementById('modalSuccess');
-                const btnCloseSuccess = document.getElementById('btnCloseSuccess');
-
-                setTimeout(() => {
-                    modalSuccess.classList.add('show');
-                }, 100);
-
-                btnCloseSuccess.addEventListener('click', function () {
-                    modalSuccess.classList.remove('show');
-                });
-
-                setTimeout(() => {
-                    modalSuccess.classList.remove('show');
-                }, 3000);
-            @endif
-
-                });
     </script>
 
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+
+    @if(session('success'))
+
+        const modal = document.getElementById('modalSuccess');
+        const btn = document.getElementById('btnCloseSuccess');
+
+        if(modal){
+            modal.classList.add('show');
+
+            if(btn){
+                btn.onclick = function(){
+                    modal.classList.remove('show');
+                }
+            }
+
+            setTimeout(() => {
+                modal.classList.remove('show');
+            }, 3000);
+        }
+
+    @endif
+
+});
+</script>
 
     <!-- MODAL DETAIL -->
 
@@ -323,7 +315,8 @@
                     data.details.forEach(item => {
                         html += `
                                     <tr>
-                                        <td>${item.barang?.nama_barang ?? item.keterangan}</td>
+                                        <td>${item.barang?.nama_barang }</td>
+                                        <td>${item.keterangan ?? "-"}</td>
                                         <td>${item.qty}</td>
                                         <td>
                                             ${item.image
@@ -358,11 +351,6 @@
         });
     </script>
 
-    @if(session('print_serah'))
-        <script>
-            window.open("{{ route('request.pdf.serah', session('print_serah')) }}", "_blank");
-        </script>
-    @endif
 
     <script>
         function showImage(img) {
@@ -382,7 +370,7 @@
             modal.innerHTML = `
             <div style="position:relative;">
                 <img src="/storage/${img}" 
-                     style="max-width:80vw; max-height:80vh; border-radius:10px;">
+                style="max-width:80vw; max-height:80vh; border-radius:10px;">
                 <button style="
                     position:absolute;
                     top:-10px; right:-10px;
@@ -402,4 +390,12 @@
             document.body.appendChild(modal);
         }
     </script>
+    <script>
+    document.getElementById('checkAll').onclick = function(){
+        document.querySelectorAll('input[name="ids[]"]').forEach(cb => {
+            cb.checked = this.checked;
+        });
+    }
+    </script>
+
 @endsection

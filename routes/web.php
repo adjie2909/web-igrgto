@@ -52,6 +52,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/request/pdf/{id}', [RequestController::class, 'pdfChecklist'])->name('request.pdf');
     Route::get('/request/pdf-serah/{id}', [RequestController::class, 'pdfSerah'])->name('request.pdf.serah');
 
+
     // TICKETING
     Route::get('/ticket', [TicketController::class, 'index'])->name('ticket.index');
     Route::get('/ticket/create', [TicketController::class, 'create'])->name('ticket.create');
@@ -65,8 +66,14 @@ Route::middleware('auth')->group(function () {
     Route::post('/ticket/close/{id}', [TicketController::class, 'close'])->name('ticket.close');
 
 
+    // APPROVAL
+    Route::get('/approval/bulk', [ApprovalController::class, 'bulkPage'])->name('approval.bulk');
+    Route::post('/approval/bulk', [ApprovalController::class, 'bulkProcess'])->name('approval.bulk.process');
+
+
 });
 
+    // ADMIN
 Route::middleware(['auth', 'admin'])->prefix('admin')->group(function () {
 
     Route::resource('user', \App\Http\Controllers\Admin\UserController::class)->except(['create','store']);
