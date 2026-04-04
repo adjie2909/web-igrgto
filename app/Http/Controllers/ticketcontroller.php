@@ -17,46 +17,52 @@ class TicketController extends Controller
     {
         $user = auth()->user();
         $divisionId = $user->division_id;
-        $total = Ticket::count();
-        $open = Ticket::where('status', 0)->count();
-        $proses = Ticket::where('status', 1)->count();
-        $selesai = Ticket::where('status', 2)->count();
 
+        // =========================
+        // 🔥 DIVISI KHUSUS (LIHAT SEMUA + GROUP)
+        // =========================
+        if (in_array($divisionId, [9, 10, 14])) {
 
-        if ($divisionId == self::DIV_EDP) {
+            $tickets = Ticket::with('user.division')
+                ->latest()
+                ->get();
 
-            $tickets = Ticket::where(function ($q) use ($user) {
-                $q->where('level', 1)
-                ->orWhere('user_id', $user->id)
-                ->orWhereHas('replies', function ($r) use ($user) {
-                    $r->where('user_id', $user->id);
-                });
-            })->latest()->get();
-
-        }elseif ($divisionId == self::DIV_PGA) {
-
-            // 🔥 PGA handle level 2
-            $tickets = Ticket::where('level', 2)->latest()->get();
-
-        } elseif ($divisionId == self::DIV_ADMIN) {
-
-            // 🔥 admin lihat semua
-            $tickets = Ticket::latest()->get();
+            $groupedTickets = $tickets->groupBy(function ($t) {
+                return $t->user->division->nama_divisi ?? 'LAINNYA';
+            });
 
         } else {
 
-            // 🔥 user biasa
-            $tickets = Ticket::where('user_id', $user->id)->latest()->get();
+            // =========================
+            // 🔥 DIVISI BIASA (HANYA SENDIRI)
+            // =========================
+            $tickets = Ticket::with('user.division')
+                ->whereHas('user', function ($q) use ($divisionId) {
+                    $q->where('division_id', $divisionId);
+                })
+                ->latest()
+                ->get();
+
+            $groupedTickets = collect(); // biar aman
         }
 
-        return view('ticket.index', [
-            'tickets' => $tickets,
-            'divisionId' => $divisionId,
-            'total' => $total,
-            'open' => $open,
-            'proses' => $proses,
-            'selesai' => $selesai
-        ]);
+        // =========================
+        // SUMMARY
+        // =========================
+        $total = $tickets->count();
+        $open = $tickets->where('status', 0)->count();
+        $proses = $tickets->where('status', 1)->count();
+        $selesai = $tickets->where('status', 2)->count();
+
+        return view('ticket.index', compact(
+            'tickets',
+            'groupedTickets',
+            'total',
+            'open',
+            'proses',
+            'selesai',
+            'divisionId'
+        ));
     }
 
     public function create()
