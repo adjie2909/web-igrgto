@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\ApprovalController;
 use App\Http\Controllers\RequestController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\TicketController;
 
 /*
 |--------------------------------------------------------------------------
@@ -50,6 +51,19 @@ Route::middleware('auth')->group(function () {
     // PDF
     Route::get('/request/pdf/{id}', [RequestController::class, 'pdfChecklist'])->name('request.pdf');
     Route::get('/request/pdf-serah/{id}', [RequestController::class, 'pdfSerah'])->name('request.pdf.serah');
+
+    // TICKETING
+    Route::get('/ticket', [TicketController::class, 'index'])->name('ticket.index');
+    Route::get('/ticket/create', [TicketController::class, 'create'])->name('ticket.create');
+    Route::post('/ticket/store', [TicketController::class, 'store'])->name('ticket.store');
+
+    Route::get('/ticket/{id}', [TicketController::class, 'show'])->name('ticket.show');
+    Route::post('/ticket/reply/{id}', [TicketController::class, 'reply'])->name('ticket.reply');
+    Route::post('/ticket/escalate/{id}', [TicketController::class, 'escalate'])
+    ->name('ticket.escalate');
+
+    Route::post('/ticket/close/{id}', [TicketController::class, 'close'])->name('ticket.close');
+
 
 });
 

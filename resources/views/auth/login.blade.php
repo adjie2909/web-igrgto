@@ -8,9 +8,21 @@
 
         <div style="text-align:center; margin-bottom:20px;">
             <h2 style="margin-bottom:5px;">LOGIN</h2>
-            <div style="font-size:13px; color:#64748b;">
-            </div>
         </div>
+
+        {{-- 🔥 POPUP ERROR --}}
+        @if($errors->any())
+        <div id="errorPopup" style="
+            background:#fee2e2;
+            color:#991b1b;
+            padding:10px;
+            border-radius:8px;
+            margin-bottom:15px;
+            text-align:center;
+        ">
+            User ID atau Password salah
+        </div>
+        @endif
 
         <form method="POST" action="{{ route('login') }}">
             @csrf
@@ -18,7 +30,14 @@
             <!-- USERID -->
             <div class="form-group">
                 <label>User ID</label>
-                <input type="text" name="userid" id="userid" class="input" maxlength="3" required>
+                <input 
+                    type="text" 
+                    name="userid" 
+                    id="userid" 
+                    class="input" 
+                    maxlength="3" 
+                    value="{{ old('userid') }}" {{-- 🔥 biar tetap ada --}}
+                    required>
             </div>
 
             <!-- PASSWORD -->
@@ -45,21 +64,25 @@
                 Login
             </button>
 
-            <div style="margin-top:15px; text-align:center; font-size:13px;">
-                Belum punya akun?
-                <a href="{{ route('register') }}">Register</a>
-            </div>
-
         </form>
 
     </div>
 
 </div>
 
+{{-- 🔥 AUTO HILANG POPUP --}}
+<script>
+setTimeout(() => {
+    const popup = document.getElementById('errorPopup');
+    if (popup) {
+        popup.style.display = 'none';
+    }
+}, 3000);
+</script>
+
 <script>
 document.addEventListener('DOMContentLoaded', function () {
 
-    // 🔥 USERID AUTO UPPERCASE
     const userid = document.getElementById('userid');
     if (userid) {
         userid.addEventListener('input', function () {
@@ -67,17 +90,9 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    // 🔥 NAME AUTO KAPITAL
-    const name = document.getElementById('name');
-    if (name) {
-        name.addEventListener('input', function () {
-            this.value = this.value.replace(/\b\w/g, c => c.toUpperCase());
-        });
-    }
-
 });
 
-// 🔥 SHOW / HIDE PASSWORD
+// SHOW / HIDE PASSWORD
 function togglePassword(id, el) {
     const input = document.getElementById(id);
 

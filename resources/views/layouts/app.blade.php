@@ -19,6 +19,24 @@
             justify-content: space-between;
             align-items: center;
         }
+        .nav-link {
+            padding: 8px 14px;
+            border-radius: 8px;
+            text-decoration: none;
+            color: #cbd5f5;
+            font-size: 14px;
+            transition: 0.2s;
+        }
+
+        .nav-link:hover {
+            background: #334155;
+            color: white;
+        }
+
+        .nav-link.active {
+            background: #2563eb;
+            color: white;
+        }
 
         .container {
             padding: 25px;
@@ -371,38 +389,167 @@
         .detail-box div {
             font-weight: 500;
         }
+
+        /* CHAT BOX */
+        .chat-box {
+            max-height: 400px;
+            overflow-y: auto;
+            padding: 10px;
+            background: #f1f5f9;
+            border-radius: 10px;
+            margin-bottom: 15px;
+        }
+
+        /* ROW */
+        .chat-row {
+            display: flex;
+            margin-bottom: 10px;
+        }
+
+        /* POSISI */
+        .chat-row.me {
+            justify-content: flex-end;
+        }
+
+        .chat-row.other {
+            justify-content: flex-start;
+        }
+
+        /* BUBBLE */
+        .chat-bubble {
+            max-width: 60%;
+            padding: 10px;
+            border-radius: 10px;
+            font-size: 14px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        /* WARNA */
+        .chat-row.me .chat-bubble {
+            background: #3b82f6;
+            color: white;
+        }
+
+        .chat-row.other .chat-bubble {
+            background: white;
+            color: #1e293b;
+        }
+
+        /* NAME */
+        .chat-name {
+            font-size: 12px;
+            font-weight: bold;
+            margin-bottom: 3px;
+        }
+
+        /* TIME */
+        .chat-time {
+            font-size: 11px;
+            margin-top: 5px;
+            opacity: 0.7;
+        }
+
+        /* INPUT */
+        .chat-form {
+            display: flex;
+            gap: 10px;
+        }
+
+        .chat-input {
+            flex: 1;
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid #cbd5f5;
+        }
+
+        /* ALERT */
+        .alert-close {
+            background: #fee2e2;
+            color: #991b1b;
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
+        .stat-box {
+            flex:1;
+            padding:15px;
+            border-radius:10px;
+            text-align:center;
+            font-size:14px;
+        }
+
+        /* BADGE */
+        .badge {
+            padding: 4px 10px;
+            border-radius: 8px;
+            font-size: 12px;
+            margin-left: 10px;
+            color: white;
+        }
+
+        .badge-blue { background: #3b82f6; }
+        .badge-orange { background: orange; }
+        .badge-red { background: red; }
+        .badge-green {background: green;}
     </style>
 </head>
 
 <body>
 
     @if(!request()->is('login') && !request()->is('register'))
-        <div class="navbar" style="display:flex; align-items:center; justify-content:space-between;">
+    <div class="navbar" style="display:flex; align-items:center; justify-content:space-between;">
 
-            <!-- KIRI: LOGO + TEXT -->
+        <!-- KIRI: LOGO + MENU -->
+        <div style="display:flex; align-items:center; gap:25px;">
+
+            <!-- LOGO -->
             <div style="display:flex; align-items:center; gap:10px;">
                 <img src="{{ asset('assets/logo_indogrosir.png') }}" style="height:40px;">
-
                 <div style="font-weight:600;">
                     INDOGROSIR GORONTALO
                 </div>
             </div>
 
-            <!-- KANAN: USER -->
-            <div style="display:flex; align-items:center; gap:20px;">
-                @auth
-                    <div style="font-size:14px; color:#cbd5f5;">
-                        {{ auth()->user()->userid }}
-                    </div>
+            <!-- MENU -->
+            <div style="display:flex; gap:10px; margin-left:20px;">
 
-                    <form method="POST" action="{{ route('logout') }}">
-                        @csrf
-                        <button class="btn btn-red">Logout</button>
-                    </form>
-                @endauth
+                <!-- DASHBOARD
+                <a href="{{ route('dashboard') }}"
+                class="nav-link {{ request()->is('dashboard') ? 'active' : '' }}">
+                    🏠 Dashboard
+                </a> -->
+
+                <!-- DASHBOARD -->
+                <a href="{{ route('dashboard') }}"
+                class="nav-link {{ request()->is('dashboard*') ? 'active' : '' }}">
+                    Permintaan Barang
+                </a>
+
+                <!-- TICKETING -->
+                <a href="{{ route('ticket.index') }}"
+                class="nav-link {{ request()->is('ticket*') ? 'active' : '' }}">
+                    Ticketing Case
+                </a>
+
             </div>
 
         </div>
+
+        <!-- KANAN: USER -->
+        <div style="display:flex; align-items:center; gap:20px;">
+            @auth
+                <div style="font-size:14px; color:#cbd5f5;">
+                    {{ auth()->user()->userid }}
+                </div>
+
+                <form method="POST" action="{{ route('logout') }}">
+                    @csrf
+                    <button class="btn btn-red">Logout</button>
+                </form>
+            @endauth
+        </div>
+
+    </div>
     @endif
 
     <div class="container">
