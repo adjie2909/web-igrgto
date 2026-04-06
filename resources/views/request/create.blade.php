@@ -79,6 +79,19 @@
 
         </form>
     </div>
+
+    <div id="modalValidation" class="modal">
+        <div class="modal-content">
+            <h3 style="margin-top:0;">Peringatan</h3>
+            <p style="font-size:14px; color:#64748b; margin-bottom:10px;">
+                Harap isi kolom berikut:
+            </p>
+            <div id="validationList" style="font-size:14px; line-height:1.7;"></div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-primary" id="btnCloseValidation">OK</button>
+            </div>
+        </div>
+    </div>
 <script>
 let index = 1;
 
@@ -87,6 +100,21 @@ let index = 1;
 // ===============================
 function formatRupiah(angka) {
     return 'Rp ' + angka.toLocaleString('id-ID');
+}
+
+function showValidationModal(fields) {
+    let modal = document.getElementById('modalValidation');
+    let list = document.getElementById('validationList');
+    let btnClose = document.getElementById('btnCloseValidation');
+
+    if (!modal || !list || !btnClose) return;
+
+    list.innerHTML = fields.map((field) => `- ${field}`).join('<br>');
+    modal.classList.add('show');
+
+    btnClose.onclick = function () {
+        modal.classList.remove('show');
+    };
 }
 
 // ===============================
@@ -257,35 +285,96 @@ document.addEventListener('input', function(e){
 // VALIDASI SUBMIT
 // ===============================
 document.getElementById('form-request').addEventListener('submit', function(e){
+    let firstInvalid = null;
+    let pesanKosong = [];
+
+    function tandaiKosong(field){
+        if(!firstInvalid){
+            firstInvalid = field;
+        }
+        field.style.border = '2px solid red';
+    }
+
+    function bersihkanError(field){
+        field.style.border = '';
+    }
+
+    // validasi tanggal
+    let tanggal = document.querySelector('input[name="tanggal_request"]');
+    bersihkanError(tanggal);
+    if(!tanggal.value){
+        tandaiKosong(tanggal);
+        pesanKosong.push('Tanggal Request');
+    }
 
     let rows = document.querySelectorAll('#table-barang tr');
 
     for(let i = 1; i < rows.length; i++){
-
         let row = rows[i];
 
         let select = row.querySelector('.barang-select');
+        let qty = row.querySelector('.qty-input');
         let harga = row.querySelector('.harga-input');
+        let image = row.querySelector('input[type="file"]');
 
-        if(!select) continue;
+        if(!select || !qty || !harga) continue;
+
+        bersihkanError(select);
+        bersihkanError(qty);
+        bersihkanError(harga);
+        if(image){
+            bersihkanError(image);
+        }
 
         let selectedOption = select.options[select.selectedIndex];
         let selectedText = selectedOption ? selectedOption.text.toLowerCase() : '';
 
+        if(!select.value){
+            tandaiKosong(select);
+            pesanKosong.push(`Baris ${i}: Barang`);
+        }
+
+        if(!qty.value || parseInt(qty.value) <= 0){
+            tandaiKosong(qty);
+            pesanKosong.push(`Baris ${i}: Qty`);
+        }
+
+        // Estimasi harga manual hanya wajib jika pilih "lain-lain"
         if(selectedText.includes('lain')){
             if(!harga.value || parseInt(harga.value) <= 0){
-
-                alert('Barang "Lain-lain" wajib mengisi estimasi harga!');
-
-                harga.focus();
-                harga.style.border = '2px solid red';
-
-                e.preventDefault();
-                return false; // 🔥 PENTING
+                tandaiKosong(harga);
+                pesanKosong.push(`Baris ${i}: Estimasi Harga`);
             }
         }
     }
 
+    if(pesanKosong.length > 0){
+        e.preventDefault();
+        showValidationModal(pesanKosong);
+        if(firstInvalid){
+            firstInvalid.focus();
+        }
+        return false;
+    }
+});
+
+// hapus tanda merah ketika user mulai mengisi ulang
+document.addEventListener('input', function(e){
+    if(e.target.classList.contains('input')){
+        e.target.style.border = '';
+    }
+});
+
+document.addEventListener('change', function(e){
+    if(e.target.classList.contains('input')){
+        e.target.style.border = '';
+    }
+});
+
+document.getElementById('modalValidation').addEventListener('click', function(e){
+    if(e.target.id === 'modalValidation'){
+        e.currentTarget.classList.remove('show');
+    }
 });
 </script>
 @endsection

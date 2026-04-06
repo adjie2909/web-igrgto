@@ -2,6 +2,20 @@
 
 @section('content')
 
+    <style>
+        .btn-aksi-size {
+            width: 72px;
+            height: 34px;
+            padding: 0 10px;
+            text-align: center;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            white-space: nowrap;
+            box-sizing: border-box;
+        }
+    </style>
+
     <div class="card">
 
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
@@ -73,7 +87,7 @@
                             @if($isApprover && $req->status == 0)
 
                                 <div style="display:flex; gap:6px;">
-                                    <button class="btn btn-outline btn-detail" data-json='@json($req)'>
+                                    <button class="btn btn-outline btn-detail btn-aksi-size" data-json='@json($req)'>
                                         Detail
                                     </button>
                                     <form method="POST" action="{{ route('approval.approve', $req->id) }}">
@@ -94,11 +108,11 @@
 
                             {{-- PGA PROSES --}}
                             @if($user->role == 'PGA' && $req->status == 1)
-                                <button class="btn btn-outline btn-detail" data-json='@json($req)'>
+                                <button class="btn btn-outline btn-detail btn-aksi-size" data-json='@json($req)'>
                                     Detail
                                 </button>
-                                <a class="btn btn-outline" href="{{ route('proses', $req->id) }}" target="_blank"
-                                    onclick="window.open('{{ route('request.pdf', $req->id) }}', '_blank')">
+                                <a class="btn btn-outline btn-aksi-size" href="{{ route('proses', $req->id) }}" target="_blank"
+                                    onclick="window.open('{{ route('request.pdf', ['id' => $req->id, 'doc' => strtoupper(str_replace('/', '-', $req->nomor_dokumen ?? 'CHECKLIST-REQUEST'))]) }}', '_blank')">
                                     Proses
                                 </a>
                             @endif
@@ -106,11 +120,10 @@
                             
                             {{-- PGA SELESAI --}}
                             @if($user->role == 'PGA' && $req->status == 2)
-                                <button class="btn btn-outline btn-detail" data-json='@json($req)'>
+                                <button class="btn btn-outline btn-detail btn-aksi-size" data-json='@json($req)'>
                                     Detail
                                 </button>
-                                <a class="btn btn-outline" href="{{ route('selesai', $req->id) }}" target="_blank"
-                                    onclick="window.open('{{ route('request.pdf.serah', $req->id) }}', '_blank')">
+                                <a class="btn btn-outline btn-aksi-size" href="{{ route('selesai', $req->id) }}">
                                     Selesai
                                 </a>
                             @endif
@@ -122,7 +135,7 @@
                                     !($isApprover && $req->status == 0) &&
                                     !($user->role == 'PGA' && in_array($req->status, [1, 2]))
                                 )
-                                <button class="btn btn-outline btn-detail" data-json='@json($req)'>
+                                <button class="btn btn-outline btn-detail btn-aksi-size" data-json='@json($req)'>
                                     Detail
                                 </button>
                             @endif
@@ -398,5 +411,16 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
     </script>
+
+    @if(session('print_serah'))
+    <script>
+        window.addEventListener('load', function () {
+            window.open(
+                "{{ route('request.pdf.serah', ['id' => session('print_serah'), 'doc' => session('print_serah_doc')]) }}",
+                '_blank'
+            );
+        });
+    </script>
+    @endif
 
 @endsection

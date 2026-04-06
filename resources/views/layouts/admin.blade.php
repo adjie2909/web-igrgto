@@ -3,6 +3,7 @@
 
 <head>
     <title>Admin Panel</title>
+    <link rel="icon" type="image/png" href="{{ asset('assets/logo_indogrosir.png') }}">
     <style>
         /* BASE */
         body {

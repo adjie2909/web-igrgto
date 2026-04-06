@@ -88,13 +88,13 @@
                         @endif
 
                         {{-- PDF CHECKLIST --}}
-                        <a href="{{ route('request.pdf', $r->id) }}" 
+                        <a href="{{ route('request.pdf', ['id' => $r->id, 'doc' => strtoupper(str_replace('/', '-', $r->nomor_dokumen ?? 'CHECKLIST-REQUEST'))]) }}" 
                         class="btn btn-gray" target="_blank">
                             Checklist
                         </a>
 
                         {{-- PDF SERAH --}}
-                        <a href="{{ route('request.pdf.serah', $r->id) }}" 
+                        <a href="{{ route('request.pdf.serah', ['id' => $r->id, 'doc' => strtoupper(str_replace('/', '-', $r->nomor_serah ?? $r->nomor_dokumen ?? 'SERAH-TERIMA'))]) }}" 
                         class="btn btn-gray" target="_blank">
                             Serah
                         </a>

@@ -67,6 +67,12 @@
                 Login
             </button>
 
+            @if (Route::has('register'))
+            <a href="{{ route('register') }}" class="btn btn-outline" style="display:block; width:100%; box-sizing:border-box; margin-top:10px; text-align:center;">
+                Register
+            </a>
+            @endif
+
         </form>
 
     </div>

@@ -20,6 +20,22 @@
             {{ session('success') }}
         </div>
         @endif
+
+        @if($errors->any())
+        <div id="errorPopup" style="
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #ef4444;
+            color: white;
+            padding: 12px 20px;
+            border-radius: 10px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+            z-index: 9999;
+        ">
+            {{ $errors->first('userid') ?: $errors->first() }}
+        </div>
+        @endif
         <div>
             <h2>Manajemen User</h2>
             <p>Kelola data user sistem</p>
@@ -136,7 +152,7 @@
 
                 <div class="form-group">
                     <label>User ID</label>
-                    <input type="text" name="userid" id="edit_userid">
+                    <input type="text" name="userid" id="edit_userid" maxlength="3">
                 </div>
 
                 <div class="form-group full">
@@ -243,6 +259,20 @@ document.addEventListener('input', function(){
         confirm.style.border = '';
     }
 
+    // Nama: setiap kata diawali huruf besar
+    const name = document.getElementById('edit_name');
+    if (name === document.activeElement) {
+        name.value = name.value
+            .toLowerCase()
+            .replace(/\b\w/g, c => c.toUpperCase());
+    }
+
+    // User ID: maksimum 3 karakter + uppercase
+    const userid = document.getElementById('edit_userid');
+    if (userid === document.activeElement) {
+        userid.value = userid.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 3);
+    }
+
 });
 </script>
 
@@ -255,5 +285,13 @@ setTimeout(() => {
         setTimeout(() => popup.remove(), 500);
     }
 }, 2000);
+
+setTimeout(() => {
+    let popup = document.getElementById('errorPopup');
+    if(popup){
+        popup.style.opacity = '0';
+        setTimeout(() => popup.remove(), 500);
+    }
+}, 3000);
 </script>
 @endsection

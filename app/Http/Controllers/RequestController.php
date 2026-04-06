@@ -13,6 +13,16 @@ use Illuminate\Support\Facades\DB;
 
 class RequestController extends Controller
 {
+    private function formatDocForUrl(?string $nomor, string $fallback): string
+    {
+        $base = trim((string) $nomor);
+        if ($base === '') {
+            $base = $fallback;
+        }
+
+        // pertahankan format nomor dokumen, ganti "/" jadi "-"
+        return strtoupper(str_replace('/', '-', $base));
+    }
 
     // ===============================
     // FORM CREATE
@@ -251,6 +261,7 @@ class RequestController extends Controller
 
         return redirect()->route('request.index')->with([
                 'print_serah' => $req->id,
+                'print_serah_doc' => strtoupper(str_replace('/', '-', $nomorSerah)),
                 'success' => 'Permintaan barang selesai diproses'
             ]);
     }
@@ -259,27 +270,42 @@ class RequestController extends Controller
     // ===============================
     // PDF CHECKLIST
     // ===============================
-    public function pdfChecklist($id)
+    public function pdfChecklist($id, $doc = null)
     {
         $req = RequestHeader::with(['user.division', 'details.barang'])
             ->findOrFail($id);
 
+        $docBenar = $this->formatDocForUrl($req->nomor_dokumen, 'CHECKLIST-REQUEST');
+        if ($doc !== $docBenar) {
+            return redirect()->route('request.pdf', ['id' => $req->id, 'doc' => $docBenar]);
+        }
+
         $pdf = Pdf::loadView('pdf.checklist', compact('req'));
 
-        return $pdf->stream('checklist-request.pdf');
+        $filename = $docBenar . '-CHECKLIST.pdf';
+
+        return $pdf->stream($filename);
     }
 
 
     // ===============================
     // PDF SERAH TERIMA
     // ===============================
-    public function pdfSerah($id)
+    public function pdfSerah($id, $doc = null)
     {
         $req = RequestHeader::with(['user.division', 'details.barang'])
             ->findOrFail($id);
 
+        $nomorUntukSerah = $req->nomor_serah ?: $req->nomor_dokumen;
+        $docBenar = $this->formatDocForUrl($nomorUntukSerah, 'SERAH-TERIMA');
+        if ($doc !== $docBenar) {
+            return redirect()->route('request.pdf.serah', ['id' => $req->id, 'doc' => $docBenar]);
+        }
+
         $pdf = Pdf::loadView('pdf.serah', compact('req'));
 
-        return $pdf->stream('serah-terima.pdf');
+        $filename = $docBenar . '.pdf';
+
+        return $pdf->stream($filename);
     }
 }

@@ -49,8 +49,8 @@ Route::middleware('auth')->group(function () {
     Route::get('/request/selesai/{id}', [RequestController::class, 'selesai'])->name('selesai');
 
     // PDF
-    Route::get('/request/pdf/{id}', [RequestController::class, 'pdfChecklist'])->name('request.pdf');
-    Route::get('/request/pdf-serah/{id}', [RequestController::class, 'pdfSerah'])->name('request.pdf.serah');
+    Route::get('/request/pdf/{id}/{doc?}', [RequestController::class, 'pdfChecklist'])->name('request.pdf');
+    Route::get('/request/pdf-serah/{id}/{doc?}', [RequestController::class, 'pdfSerah'])->name('request.pdf.serah');
 
 
     // TICKETING

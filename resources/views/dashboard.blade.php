@@ -4,7 +4,7 @@
 
 
     <div style="margin-bottom:15px;">
-        <h2>Dashboard Ticketing Complain</h2>
+        <h2>Permintaan Barang GA</h2>
 
         <div style="display:flex; gap:30px; font-size:28px; color:#475569;">
             <div><b>Nama:</b> {{ auth()->user()->name }}</div>
@@ -75,7 +75,7 @@
     </div>
 
     <div class="card">
-        <h3>Request Terbaru</h3>
+        <h3>List Permintaan Barang</h3>
 
         <table>
             <tr>
@@ -115,7 +115,7 @@
     {{-- MODAL DETAIL --}}
 
     <div id="modalDetail" class="modal">
-        <div class="modal-content" style="width:600px;">
+        <div class="modal-content" style="width:min(1100px, 95vw);">
 
             <h3 style="margin-bottom:15px;">Detail Request</h3>
 
@@ -149,6 +149,7 @@
                         <th>Barang</th>
                         <th>Keterangan</th>
                         <th>Qty</th>
+                        <th>Estimasi Harga</th>
                         <th>Gambar</th>
                     </tr>
                 </thead>
@@ -169,6 +170,10 @@
             const modalDetail = document.getElementById('modalDetail');
             const closeDetail = document.getElementById('closeDetail');
 
+            function formatRupiah(angka) {
+                return 'Rp ' + Number(angka || 0).toLocaleString('id-ID');
+            }
+
             document.querySelectorAll('.btn-detail').forEach(btn => {
                 btn.addEventListener('click', function () {
 
@@ -185,15 +190,24 @@
 
                     if (data.details && data.details.length > 0) {
                         data.details.forEach(item => {
+                            const estimasiHarga = item.harga_manual ?? item.barang?.harga_estimasi ?? 0;
                             html += `
                             <tr>
                                 <td>${item.barang?.nama_barang ?? item.keterangan ?? '-'}</td>
+                                <td>${item.keterangan ?? '-'}</td>
                                 <td>${item.qty ?? 0}</td>
+                                <td>${formatRupiah(estimasiHarga)}</td>
+                                <td>
+                                    ${item.image
+                                    ? `<button class="btn btn-outline" onclick="showImage('${item.image}')">Lihat</button>`
+                                    : '-'
+                                }
+                                </td>
                             </tr>
                         `;
                         });
                     } else {
-                        html = `<tr><td colspan="2">Tidak ada data</td></tr>`;
+                        html = `<tr><td colspan="5">Tidak ada data</td></tr>`;
                     }
 
                     document.getElementById('d_items').innerHTML = html;
@@ -226,6 +240,10 @@
             const modalDetail = document.getElementById('modalDetail');
             const closeDetail = document.getElementById('closeDetail');
 
+            function formatRupiah(angka) {
+                return 'Rp ' + Number(angka || 0).toLocaleString('id-ID');
+            }
+
             document.querySelectorAll('.btn-detail').forEach(btn => {
                 btn.addEventListener('click', function () {
 
@@ -241,11 +259,13 @@
                     let html = '';
 
                     data.details.forEach(item => {
+                        const estimasiHarga = item.harga_manual ?? item.barang?.harga_estimasi ?? 0;
                         html += `
                                         <tr>
                                             <td>${item.barang?.nama_barang}</td>
                                             <td>${item.keterangan ?? '-'}</td>
                                             <td>${item.qty}</td>
+                                            <td>${formatRupiah(estimasiHarga)}</td>
                                             <td>
                                                 ${item.image
                                 ? `<button class="btn btn-outline" onclick="showImage('${item.image}')">

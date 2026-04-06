@@ -53,7 +53,7 @@
 {{-- LIST --}}
 {{-- ========================= --}}
 <div class="card" style="margin-top:25px;">
-    <h4>Ticket Terbaru</h4>
+    <h4>List Ticket Case</h4>
 
     <table>
         <thead>

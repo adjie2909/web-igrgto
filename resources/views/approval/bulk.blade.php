@@ -6,7 +6,7 @@
 
         <h2 style="margin-bottom:20px;">Bulk Approval</h2>
 
-        <form method="POST" action="{{ route('approval.bulk.process') }}">
+        <form id="bulkApprovalForm" method="POST" action="{{ route('approval.bulk.process') }}">
             @csrf
             @php
                 $totalItem = 0;
@@ -111,10 +111,10 @@
                 </div>
 
             </div>
-            <button type="submit" 
+            <button type="button" 
                 class="btn btn-blue" 
                 style="margin-top:20px;"
-                onclick="return confirm('Yakin approve? Yang tidak dicentang akan di-reject')">
+                id="btnOpenApproveModal">
                 Approve
             </button>
             <p>*List yang tidak di-approve auto Reject</p>
@@ -125,9 +125,28 @@
     <a href="{{ route('dashboard') }}" class="btn btn-outline">
         Kembali
     </a>
+
+    <div id="modalApprove" class="modal">
+        <div class="modal-content" style="max-width:430px;">
+            <h3 style="margin-top:0;">Konfirmasi Approval</h3>
+            <p style="font-size:14px; color:#64748b;">
+                Yakin approve? Yang tidak dicentang akan di-reject.
+            </p>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-outline" id="btnCancelApprove">Batal</button>
+                <button type="button" class="btn btn-primary" id="btnConfirmApprove">Ya, Approve</button>
+            </div>
+        </div>
+    </div>
 <script>
 
 document.addEventListener('DOMContentLoaded', function(){
+
+    const form = document.getElementById('bulkApprovalForm');
+    const modalApprove = document.getElementById('modalApprove');
+    const btnOpenApproveModal = document.getElementById('btnOpenApproveModal');
+    const btnCancelApprove = document.getElementById('btnCancelApprove');
+    const btnConfirmApprove = document.getElementById('btnConfirmApprove');
 
     const checkAll = document.getElementById('checkAll');
     const checkboxes = document.querySelectorAll('.check-item');
@@ -189,6 +208,36 @@ document.addEventListener('DOMContentLoaded', function(){
             hitungTotal();
         });
     });
+
+    // =========================
+    // MODAL APPROVE (CUSTOM)
+    // =========================
+    if(btnOpenApproveModal){
+        btnOpenApproveModal.addEventListener('click', function(){
+            modalApprove.classList.add('show');
+        });
+    }
+
+    if(btnCancelApprove){
+        btnCancelApprove.addEventListener('click', function(){
+            modalApprove.classList.remove('show');
+        });
+    }
+
+    if(btnConfirmApprove){
+        btnConfirmApprove.addEventListener('click', function(){
+            modalApprove.classList.remove('show');
+            form.submit();
+        });
+    }
+
+    if(modalApprove){
+        modalApprove.addEventListener('click', function(e){
+            if(e.target === modalApprove){
+                modalApprove.classList.remove('show');
+            }
+        });
+    }
 
 });
 

@@ -19,13 +19,13 @@
             <!-- NAME -->
             <div class="form-group">
                 <label>Nama</label>
-                <input type="text" name="name" id="name" class="input" required>
+                <input type="text" name="name" id="name" class="input" value="{{ old('name') }}" required>
             </div>
 
             <!-- USERID -->
             <div class="form-group">
                 <label>User ID</label>
-                <input type="text" name="userid" id="userid" class="input" maxlength="3" required>
+                <input type="text" name="userid" id="userid" class="input" value="{{ old('userid') }}" maxlength="3" required>
             </div>
 
             <!-- DIVISI -->
@@ -34,7 +34,9 @@
                 <select name="division_id" class="input" required>
                     <option value="">-- Pilih Divisi --</option>
                     @foreach($divisions as $d)
-                        <option value="{{ $d->id }}">{{ $d->nama_divisi }}</option>
+                        <option value="{{ $d->id }}" {{ old('division_id') == $d->id ? 'selected' : '' }}>
+                            {{ $d->nama_divisi }}
+                        </option>
                     @endforeach
                 </select>
             </div>
@@ -42,7 +44,7 @@
             <!-- EMAIL -->
             <div class="form-group">
                 <label>Email</label>
-                <input type="email" name="email" class="input">
+                <input type="email" name="email" class="input" value="{{ old('email') }}">
             </div>
 
             <!-- PASSWORD -->
@@ -89,6 +91,18 @@
 
 </div>
 
+<div id="modalUseridUsed" class="modal">
+    <div class="modal-content" style="max-width:420px;">
+        <h3 style="margin-top:0;">User ID Sudah Dipakai</h3>
+        <p style="font-size:14px; color:#64748b;">
+            {{ $errors->first('userid') ?: 'User ID sudah terpakai, silakan gunakan User ID lain.' }}
+        </p>
+        <div class="modal-actions">
+            <button type="button" class="btn btn-primary" id="btnCloseUseridModal">OK</button>
+        </div>
+    </div>
+</div>
+
 <script>
 document.addEventListener('DOMContentLoaded', function () {
 
@@ -97,6 +111,7 @@ document.addEventListener('DOMContentLoaded', function () {
     if (userid) {
         userid.addEventListener('input', function () {
             this.value = this.value.toUpperCase();
+            this.style.border = '';
         });
     }
 
@@ -107,6 +122,43 @@ document.addEventListener('DOMContentLoaded', function () {
             this.value = this.value.replace(/\b\w/g, c => c.toUpperCase());
         });
     }
+
+    // jika userid kembar: tampilkan modal + kosongkan hanya kolom userid
+    @if($errors->has('userid'))
+        const modalUseridUsed = document.getElementById('modalUseridUsed');
+        const btnCloseUseridModal = document.getElementById('btnCloseUseridModal');
+
+        if (userid) {
+            userid.value = '';
+            userid.style.border = '2px solid red';
+        }
+
+        if (modalUseridUsed) {
+            modalUseridUsed.classList.add('show');
+        }
+
+        if (btnCloseUseridModal) {
+            btnCloseUseridModal.onclick = function () {
+                if (modalUseridUsed) {
+                    modalUseridUsed.classList.remove('show');
+                }
+                if (userid) {
+                    userid.focus();
+                }
+            };
+        }
+
+        if (modalUseridUsed) {
+            modalUseridUsed.addEventListener('click', function (e) {
+                if (e.target === modalUseridUsed) {
+                    modalUseridUsed.classList.remove('show');
+                    if (userid) {
+                        userid.focus();
+                    }
+                }
+            });
+        }
+    @endif
 
 });
 

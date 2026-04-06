@@ -3,6 +3,7 @@
 @vite(['resources/js/app.js'])
 <head>
     <title>IGR GTO</title>
+    <link rel="icon" type="image/png" href="{{ asset('assets/logo_indogrosir.png') }}">
     <style>
         body {
             font-family: 'Segoe UI', sans-serif;
