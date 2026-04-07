@@ -6,8 +6,11 @@
 
     <div class="card" style="width:360px;">
 
-        <div style="text-align:center; margin-bottom:20px;">
-            <h2 style="margin-bottom:5px;">LOGIN</h2>
+        <div style="display:flex; justify-content:center; align-items:center; gap:6px; margin-bottom:18px;">
+            <div style="width:116px; height:46px; overflow:hidden; display:flex; align-items:center; justify-content:center;">
+                <img src="{{ asset('assets/logo_indogrosir.png') }}" alt="Logo Indogrosir" style="width:125%; height:125%; object-fit:cover; object-position:center; display:block;">
+            </div>
+            <h2 style="margin:0; font-size:26px; line-height:1;">LOGIN</h2>
         </div>
 
         {{-- 🔥 POPUP ERROR --}}

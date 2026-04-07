@@ -174,6 +174,18 @@
                 return 'Rp ' + Number(angka || 0).toLocaleString('id-ID');
             }
 
+            function formatTanggal(datetime) {
+                if (!datetime) return '-';
+                const date = new Date(datetime);
+                if (isNaN(date.getTime())) return datetime;
+
+                const day = String(date.getDate()).padStart(2, '0');
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const year = date.getFullYear();
+
+                return `${day}-${month}-${year}`;
+            }
+
             document.querySelectorAll('.btn-detail').forEach(btn => {
                 btn.addEventListener('click', function () {
 
@@ -230,73 +242,6 @@
 
         });
 
-    </script>
-
-    <!-- MODAL DETAIL -->
-
-    <script>
-        document.addEventListener('DOMContentLoaded', function () {
-
-            const modalDetail = document.getElementById('modalDetail');
-            const closeDetail = document.getElementById('closeDetail');
-
-            function formatRupiah(angka) {
-                return 'Rp ' + Number(angka || 0).toLocaleString('id-ID');
-            }
-
-            document.querySelectorAll('.btn-detail').forEach(btn => {
-                btn.addEventListener('click', function () {
-
-                    const data = JSON.parse(this.dataset.json);
-
-                    // HEADER
-                    document.getElementById('d_user').innerText = data.user.name;
-                    document.getElementById('d_division').innerText = data.user.division?.nama_divisi ?? '-';
-                    document.getElementById('d_nomor').innerText = data.nomor_dokumen ?? '-';
-                    document.getElementById('d_tanggal').innerText = formatTanggal(data.created_at);
-
-                    // DETAIL ITEMS
-                    let html = '';
-
-                    data.details.forEach(item => {
-                        const estimasiHarga = item.harga_manual ?? item.barang?.harga_estimasi ?? 0;
-                        html += `
-                                        <tr>
-                                            <td>${item.barang?.nama_barang}</td>
-                                            <td>${item.keterangan ?? '-'}</td>
-                                            <td>${item.qty}</td>
-                                            <td>${formatRupiah(estimasiHarga)}</td>
-                                            <td>
-                                                ${item.image
-                                ? `<button class="btn btn-outline" onclick="showImage('${item.image}')">
-                                                            Lihat
-                                                    </button>`
-                                : '-'
-                            }
-                                            </td>
-                                        </tr>
-                                    `;
-                    });
-
-                    document.getElementById('d_items').innerHTML = html;
-
-                    modalDetail.classList.add('show');
-                });
-            });
-
-            // CLOSE BUTTON
-            closeDetail.addEventListener('click', function () {
-                modalDetail.classList.remove('show');
-            });
-
-            // CLICK BACKGROUND CLOSE
-            window.addEventListener('click', function (e) {
-                if (e.target === modalDetail) {
-                    modalDetail.classList.remove('show');
-                }
-            });
-
-        });
     </script>
 
     <script>

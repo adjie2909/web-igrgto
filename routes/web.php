@@ -37,6 +37,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/request', [RequestController::class, 'index'])->name('request.index');
     Route::get('/request/create', [RequestController::class, 'create'])->name('request.create');
     Route::post('/request/store', [RequestController::class, 'store'])->name('request.store');
+    Route::get('/request/stock/{id}', [RequestController::class, 'stock'])->name('request.stock');
 
     // APPROVAL
     Route::post('approval/{id}/approve', [ApprovalController::class, 'approve'])->name('approval.approve');
@@ -45,12 +46,13 @@ Route::middleware('auth')->group(function () {
     Route::post('approval/{id}/reject', [ApprovalController::class, 'reject'])->name('approval.reject');
 
     // PGA ACTION
-    Route::get('/request/proses/{id}', [RequestController::class, 'proses'])->name('proses');
-    Route::get('/request/selesai/{id}', [RequestController::class, 'selesai'])->name('selesai');
+    Route::post('/request/proses/{id}', [RequestController::class, 'proses'])->name('proses');
+    Route::post('/request/selesai/{id}', [RequestController::class, 'selesai'])->name('selesai');
 
     // PDF
     Route::get('/request/pdf/{id}/{doc?}', [RequestController::class, 'pdfChecklist'])->name('request.pdf');
     Route::get('/request/pdf-serah/{id}/{doc?}', [RequestController::class, 'pdfSerah'])->name('request.pdf.serah');
+    Route::get('/approval/pdf-sm/{ids}/{doc?}', [ApprovalController::class, 'pdfSmApproval'])->name('approval.pdf.sm');
 
 
     // TICKETING

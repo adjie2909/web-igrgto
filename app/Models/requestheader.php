@@ -24,4 +24,14 @@ class requestheader extends Model
     {
         return $this->hasMany(RequestDetail::class, 'request_id');
     }
+
+    public function approverLevel2()
+    {
+        return $this->belongsTo(User::class, 'approved_by_level2');
+    }
+
+    public function approverLevel3()
+    {
+        return $this->belongsTo(User::class, 'approved_by_level3');
+    }
 }

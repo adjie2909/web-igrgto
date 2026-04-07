@@ -9,10 +9,116 @@ use App\Models\RequestDetail;
 use App\Models\DivisionApprover;
 use App\Models\Barang;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class RequestController extends Controller
 {
+    private function buildDetailStockInfo(RequestHeader $req, bool $addBackCurrentQty = false): array
+    {
+        $detailStockInfo = [];
+        $availableMap = [];
+
+        $barangIds = $req->details
+            ->pluck('barang_id')
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+
+        if (empty($barangIds)) {
+            return $detailStockInfo;
+        }
+
+        $reservedBefore = [];
+        $reservedRows = RequestDetail::join('request_headers', 'request_headers.id', '=', 'request_details.request_id')
+            ->whereIn('request_details.barang_id', $barangIds)
+            ->whereIn('request_headers.status', [1, 2])
+            ->where('request_headers.id', '<', $req->id)
+            ->select(
+                'request_details.barang_id',
+                DB::raw('SUM(request_details.qty) as total_qty')
+            )
+            ->groupBy('request_details.barang_id')
+            ->get();
+
+        foreach ($reservedRows as $row) {
+            $reservedBefore[(int) $row->barang_id] = (int) $row->total_qty;
+        }
+
+        $qtyCurrentByBarang = $req->details
+            ->groupBy('barang_id')
+            ->map(fn($items) => (int) $items->sum('qty'))
+            ->toArray();
+
+        foreach ($req->details as $detail) {
+            $barangId = (int) $detail->barang_id;
+            if ($barangId <= 0) {
+                continue;
+            }
+
+            if (!array_key_exists($barangId, $availableMap)) {
+                $stokMaster = (int) ($detail->barang->stok ?? 0);
+                $stokMaster += $addBackCurrentQty ? (int) ($qtyCurrentByBarang[$barangId] ?? 0) : 0;
+                $stokSetelahAntrian = $stokMaster - (int) ($reservedBefore[$barangId] ?? 0);
+                $availableMap[$barangId] = $stokSetelahAntrian;
+            }
+
+            $stokSebelum = max(0, (int) $availableMap[$barangId]);
+            $qty = (int) $detail->qty;
+            $kurang = max(0, $qty - $stokSebelum);
+            $harga = (int) ($detail->harga_manual ?? ($detail->barang->harga_estimasi ?? 0));
+            $estimasi = $kurang * $harga;
+
+            $detailStockInfo[$detail->id] = [
+                'stok_realtime' => $stokSebelum,
+                'kurang' => $kurang,
+                'harga_satuan' => $harga,
+                'estimasi' => $estimasi,
+            ];
+
+            $availableMap[$barangId] = $stokSebelum - $qty;
+        }
+
+        return $detailStockInfo;
+    }
+
+    private function getAvailableStockMap(array $barangIds): array
+    {
+        $ids = collect($barangIds)->map(fn($id) => (int) $id)->filter()->unique()->values();
+        if ($ids->isEmpty()) {
+            return [];
+        }
+
+        $rows = Barang::leftJoin('request_details', 'barangs.id', '=', 'request_details.barang_id')
+            ->leftJoin('request_headers', 'request_details.request_id', '=', 'request_headers.id')
+            ->whereIn('barangs.id', $ids->all())
+            ->select(
+                'barangs.id',
+                'barangs.stok',
+                DB::raw("
+                    COALESCE(SUM(
+                        CASE
+                            WHEN request_headers.status IN (0,1,2) OR request_headers.status IS NULL
+                            THEN request_details.qty
+                            ELSE 0
+                        END
+                    ),0) as total_request
+                ")
+            )
+            ->groupBy('barangs.id', 'barangs.stok')
+            ->get();
+
+        $result = [];
+        foreach ($rows as $row) {
+            // Jangan clamp ke 0 di sini; dipakai untuk rekonstruksi stok saat cetak PDF.
+            $result[(int) $row->id] = (int) $row->stok - (int) $row->total_request;
+        }
+
+        return $result;
+    }
+
     private function formatDocForUrl(?string $nomor, string $fallback): string
     {
         $base = trim((string) $nomor);
@@ -41,6 +147,18 @@ class RequestController extends Controller
                             ELSE 0
                         END
                     ),0) as total_request
+                "),
+                DB::raw("
+                    GREATEST(
+                        barangs.stok - COALESCE(SUM(
+                            CASE 
+                                WHEN request_headers.status IN (0,1,2) OR request_headers.status IS NULL
+                                THEN request_details.qty
+                                ELSE 0
+                            END
+                        ),0),
+                        0
+                    ) as stok_tersedia
                 ")
             )
             ->groupBy(
@@ -57,6 +175,26 @@ class RequestController extends Controller
             ->get();
 
         return view('request.create', compact('barangs'));
+    }
+
+    public function stock($id)
+    {
+        $barang = Barang::findOrFail($id);
+
+        $totalRequest = RequestDetail::join('request_headers', 'request_headers.id', '=', 'request_details.request_id')
+            ->where('request_details.barang_id', $barang->id)
+            ->whereIn('request_headers.status', [0, 1, 2])
+            ->sum('request_details.qty');
+
+        $stokTersedia = max(0, (int) $barang->stok - (int) $totalRequest);
+
+        return response()->json([
+            'barang_id' => (int) $barang->id,
+            'stok_asli' => (int) $barang->stok,
+            'total_request' => (int) $totalRequest,
+            'stok_tersedia' => (int) $stokTersedia,
+            'unit' => $barang->unit,
+        ]);
     }
 
 
@@ -197,24 +335,75 @@ class RequestController extends Controller
     // ===============================
     // PROSES
     // ===============================
-    public function proses($id)
+    public function proses(Request $request, $id)
     {
-        $req = RequestHeader::findOrFail($id);
+        $req = RequestHeader::with(['details.barang'])->findOrFail($id);
+        $user = auth()->user();
+
+        if ($user->role !== 'PGA') {
+            abort(403);
+        }
+
+        if ((int) $req->status !== 1) {
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'message' => 'Request tidak bisa diproses karena status tidak sesuai',
+                ], 422);
+            }
+
+            return redirect()->route('request.index')
+                ->with('error', 'Request tidak bisa diproses karena status tidak sesuai');
+        }
 
         $req->status = 2;
         $req->save();
 
-        return redirect()->route('request.index')
-            ->with('success', 'PGA segera proses permintaan barang');
+        // Simpan snapshot perhitungan checklist agar serah-terima bisa memakai angka yang sama.
+        $detailStockSnapshot = $this->buildDetailStockInfo($req, false);
+        Cache::put("request_detail_stock_snapshot:{$req->id}", $detailStockSnapshot, now()->addDays(2));
+
+        $docChecklist = strtoupper(str_replace('/', '-', $req->nomor_dokumen ?? 'CHECKLIST-REQUEST'));
+
+        $pdfUrl = route('request.pdf', ['id' => $req->id, 'doc' => $docChecklist]);
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'message' => 'PGA segera proses permintaan barang',
+                'pdf_url' => $pdfUrl,
+            ]);
+        }
+
+        return redirect()->route('request.index')->with([
+            'success' => 'PGA segera proses permintaan barang',
+            'print_checklist' => $req->id,
+            'print_checklist_doc' => $docChecklist,
+        ]);
     }
 
 
     // ===============================
     // SELESAI (ST NUMBER)
     // ===============================
-    public function selesai($id)
+    public function selesai(Request $request, $id)
     {
         $req = RequestHeader::with('details')->findOrFail($id);
+        $user = auth()->user();
+        $detailStockInfoAtSerah = [];
+
+        if ($user->role !== 'PGA') {
+            abort(403);
+        }
+
+        if ((int) $req->status !== 2) {
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'message' => 'Request tidak bisa diselesaikan karena status tidak sesuai',
+                ], 422);
+            }
+
+            return redirect()->route('request.index')
+                ->with('error', 'Request tidak bisa diselesaikan karena status tidak sesuai');
+        }
 
 
         //TAMBAHAN: POTONG STOK
@@ -225,9 +414,20 @@ class RequestController extends Controller
                 $barang = Barang::find($detail->barang_id);
 
                 if ($barang) {
+                    $stokSebelum = (int) $barang->stok;
+                    $kurang = max(0, (int) $detail->qty - $stokSebelum);
+                    $harga = (int) ($detail->harga_manual ?? ($barang->harga_estimasi ?? 0));
+                    $estimasi = $kurang * $harga;
+
+                    $detailStockInfoAtSerah[$detail->id] = [
+                        'stok_realtime' => max(0, $stokSebelum),
+                        'kurang' => $kurang,
+                        'harga_satuan' => $harga,
+                        'estimasi' => $estimasi,
+                    ];
 
                     // ambil stok yang tersedia saja (biar tidak minus)
-                    $ambil = min($barang->stok, $detail->qty);
+                    $ambil = min($stokSebelum, (int) $detail->qty);
 
                     $barang->stok -= $ambil;
 
@@ -259,9 +459,26 @@ class RequestController extends Controller
         $req->nomor_serah = $nomorSerah;
         $req->save();
 
+        $docSerah = strtoupper(str_replace('/', '-', $nomorSerah));
+        $existingSnapshot = Cache::get("request_detail_stock_snapshot:{$req->id}");
+        if (!is_array($existingSnapshot)) {
+            Cache::put("request_detail_stock_snapshot:{$req->id}", $detailStockInfoAtSerah, now()->addDays(2));
+        }
+        $stockToken = (string) Str::uuid();
+        Cache::put("serah_stock_info:$stockToken", $detailStockInfoAtSerah, now()->addMinutes(30));
+        $pdfUrl = route('request.pdf.serah', ['id' => $req->id, 'doc' => $docSerah]) . '?token=' . $stockToken;
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'message' => 'Permintaan barang selesai diproses',
+                'pdf_url' => $pdfUrl,
+            ]);
+        }
+
         return redirect()->route('request.index')->with([
                 'print_serah' => $req->id,
-                'print_serah_doc' => strtoupper(str_replace('/', '-', $nomorSerah)),
+                'print_serah_doc' => $docSerah,
+                'print_serah_token' => $stockToken,
                 'success' => 'Permintaan barang selesai diproses'
             ]);
     }
@@ -280,7 +497,14 @@ class RequestController extends Controller
             return redirect()->route('request.pdf', ['id' => $req->id, 'doc' => $docBenar]);
         }
 
-        $pdf = Pdf::loadView('pdf.checklist', compact('req'));
+        // Untuk checklist PGA, gunakan stok antrian:
+        // stok master dikurangi request APPROVED/DIPROSES yang lebih dulu dari request ini.
+        $snapshot = Cache::get("request_detail_stock_snapshot:{$req->id}");
+        $detailStockInfo = is_array($snapshot)
+            ? $snapshot
+            : $this->buildDetailStockInfo($req, false);
+
+        $pdf = Pdf::loadView('pdf.checklist', compact('req', 'detailStockInfo'));
 
         $filename = $docBenar . '-CHECKLIST.pdf';
 
@@ -291,18 +515,34 @@ class RequestController extends Controller
     // ===============================
     // PDF SERAH TERIMA
     // ===============================
-    public function pdfSerah($id, $doc = null)
+    public function pdfSerah(Request $request, $id, $doc = null)
     {
         $req = RequestHeader::with(['user.division', 'details.barang'])
             ->findOrFail($id);
 
         $nomorUntukSerah = $req->nomor_serah ?: $req->nomor_dokumen;
         $docBenar = $this->formatDocForUrl($nomorUntukSerah, 'SERAH-TERIMA');
+        $token = (string) $request->query('token', '');
         if ($doc !== $docBenar) {
-            return redirect()->route('request.pdf.serah', ['id' => $req->id, 'doc' => $docBenar]);
+            $url = route('request.pdf.serah', ['id' => $req->id, 'doc' => $docBenar]);
+            if ($token !== '') {
+                $url .= '?token=' . urlencode($token);
+            }
+            return redirect()->to($url);
         }
 
-        $pdf = Pdf::loadView('pdf.serah', compact('req'));
+        // Serah terima harus konsisten dengan checklist.
+        // Karena status selesai sudah memotong stok, qty request ini dikembalikan dulu (add-back)
+        // agar hasil estimasinya sama dengan saat checklist dicetak.
+        $detailStockInfoFromToken = $token !== '' ? Cache::pull("serah_stock_info:$token") : null;
+        $detailStockInfoFromChecklist = Cache::get("request_detail_stock_snapshot:{$req->id}");
+        $detailStockInfo = is_array($detailStockInfoFromChecklist)
+            ? $detailStockInfoFromChecklist
+            : (is_array($detailStockInfoFromToken)
+                ? $detailStockInfoFromToken
+                : $this->buildDetailStockInfo($req, true));
+
+        $pdf = Pdf::loadView('pdf.serah', compact('req', 'detailStockInfo'));
 
         $filename = $docBenar . '.pdf';
 

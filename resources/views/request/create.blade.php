@@ -36,9 +36,9 @@
                         <select name="items[${index}][barang_id]" class="input barang-select">
                             <option value="">-- Pilih Barang --</option>
                             @foreach($barangs as $barang)
-                                <option value="{{ $barang->id }}" data-stok="{{ $barang->stok }}"
+                                <option value="{{ $barang->id }}" data-stok="{{ (int) ($barang->stok_tersedia ?? $barang->stok) }}"
                                     data-harga="{{ $barang->harga_estimasi }}" data-unit="{{ $barang->unit }}"
-                                    data-terpakai="{{ $barang->total_request ?? 0 }}">
+                                    data-terpakai="{{ (int) ($barang->total_request ?? 0) }}">
                                     {{ $barang->nama_barang }}
                                 </option>
                             @endforeach
@@ -94,12 +94,67 @@
     </div>
 <script>
 let index = 1;
+const STOCK_URL_TEMPLATE = @json(route('request.stock', ['id' => '__ID__']));
 
 // ===============================
 // FORMAT RUPIAH
 // ===============================
 function formatRupiah(angka) {
     return 'Rp ' + angka.toLocaleString('id-ID');
+}
+
+function buildStockUrl(barangId){
+    return STOCK_URL_TEMPLATE.replace('__ID__', String(barangId));
+}
+
+function updateOptionStockData(barangId, stokTersedia, totalRequest, unit){
+    document.querySelectorAll(`.barang-select option[value="${barangId}"]`).forEach(opt => {
+        opt.dataset.stok = String(stokTersedia);
+        opt.dataset.terpakai = String(totalRequest ?? 0);
+        if(unit){
+            opt.dataset.unit = unit;
+        }
+    });
+}
+
+async function refreshStockByBarangId(barangId){
+    if(!barangId) return;
+
+    try {
+        const response = await fetch(buildStockUrl(barangId), {
+            headers: {
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+            }
+        });
+
+        if(!response.ok) return;
+
+        const data = await response.json();
+        updateOptionStockData(
+            data.barang_id,
+            data.stok_tersedia,
+            data.total_request,
+            data.unit
+        );
+    } catch (e) {
+        // biarkan silent agar UX tetap mulus saat koneksi lambat
+    }
+}
+
+async function refreshStockSemuaRow(){
+    const selects = Array.from(document.querySelectorAll('.barang-select'));
+    const ids = [...new Set(selects.map(s => s.value).filter(Boolean))];
+
+    if(ids.length === 0) return;
+
+    await Promise.all(ids.map(id => refreshStockByBarangId(id)));
+
+    const rows = document.querySelectorAll('#table-barang tr');
+    rows.forEach((row, i) => {
+        if(i === 0) return;
+        hitungEstimasi(row);
+    });
 }
 
 function showValidationModal(fields) {
@@ -132,9 +187,10 @@ document.getElementById('btn-tambah').addEventListener('click', function () {
                     @foreach($barangs as $barang)
                         <option 
                             value="{{ $barang->id }}"
-                            data-stok="{{ $barang->stok }}"
+                            data-stok="{{ (int) ($barang->stok_tersedia ?? $barang->stok) }}"
                             data-harga="{{ $barang->harga_estimasi }}"
                             data-unit="{{ $barang->unit }}"
+                            data-terpakai="{{ (int) ($barang->total_request ?? 0) }}"
                         >
                             {{ $barang->nama_barang }}
                         </option>
@@ -249,7 +305,12 @@ document.addEventListener('change', function(e){
             hargaInput.value = '';
         }
 
-        hitungEstimasi(row);
+        const barangId = e.target.value;
+        if(barangId){
+            refreshStockByBarangId(barangId).then(() => hitungEstimasi(row));
+        } else {
+            hitungEstimasi(row);
+        }
     }
 
 });
@@ -376,5 +437,8 @@ document.getElementById('modalValidation').addEventListener('click', function(e)
         e.currentTarget.classList.remove('show');
     }
 });
+
+refreshStockSemuaRow();
+setInterval(refreshStockSemuaRow, 10000);
 </script>
 @endsection

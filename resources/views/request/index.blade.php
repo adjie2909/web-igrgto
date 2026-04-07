@@ -90,7 +90,7 @@
                                     <button class="btn btn-outline btn-detail btn-aksi-size" data-json='@json($req)'>
                                         Detail
                                     </button>
-                                    <form method="POST" action="{{ route('approval.approve', $req->id) }}">
+                                    <form method="POST" action="{{ route('approval.approve', $req->id) }}" class="{{ $user->role == 'SM' ? 'js-sm-approve-form' : '' }}">
                                         @csrf
                                         <button class="btn btn-blue">
                                             Approve
@@ -111,10 +111,12 @@
                                 <button class="btn btn-outline btn-detail btn-aksi-size" data-json='@json($req)'>
                                     Detail
                                 </button>
-                                <a class="btn btn-outline btn-aksi-size" href="{{ route('proses', $req->id) }}" target="_blank"
-                                    onclick="window.open('{{ route('request.pdf', ['id' => $req->id, 'doc' => strtoupper(str_replace('/', '-', $req->nomor_dokumen ?? 'CHECKLIST-REQUEST'))]) }}', '_blank')">
-                                    Proses
-                                </a>
+                                <form method="POST" action="{{ route('proses', $req->id) }}" style="display:inline;" class="js-pga-action-form">
+                                    @csrf
+                                    <button type="submit" class="btn btn-outline btn-aksi-size">
+                                        Proses
+                                    </button>
+                                </form>
                             @endif
 
                             
@@ -123,9 +125,12 @@
                                 <button class="btn btn-outline btn-detail btn-aksi-size" data-json='@json($req)'>
                                     Detail
                                 </button>
-                                <a class="btn btn-outline btn-aksi-size" href="{{ route('selesai', $req->id) }}">
-                                    Selesai
-                                </a>
+                                <form method="POST" action="{{ route('selesai', $req->id) }}" style="display:inline;" class="js-pga-action-form">
+                                    @csrf
+                                    <button type="submit" class="btn btn-outline btn-aksi-size">
+                                        Selesai
+                                    </button>
+                                </form>
                             @endif
 
 
@@ -271,9 +276,7 @@
                     modalReject.classList.remove('show');
                 });
             }
-
-
-
+        });
     </script>
 
 <script>
@@ -310,6 +313,17 @@ document.addEventListener('DOMContentLoaded', function () {
 
             const modalDetail = document.getElementById('modalDetail');
             const closeDetail = document.getElementById('closeDetail');
+            const formatTanggalSafe = (typeof formatTanggal === 'function')
+                ? formatTanggal
+                : function(datetime){
+                    if(!datetime) return '-';
+                    const date = new Date(datetime);
+                    if(isNaN(date.getTime())) return datetime;
+                    const day = String(date.getDate()).padStart(2, '0');
+                    const month = String(date.getMonth() + 1).padStart(2, '0');
+                    const year = date.getFullYear();
+                    return `${day}-${month}-${year}`;
+                };
 
             document.querySelectorAll('.btn-detail').forEach(btn => {
                 btn.addEventListener('click', function () {
@@ -320,7 +334,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     document.getElementById('d_user').innerText = data.user.name;
                     document.getElementById('d_division').innerText = data.user.division?.nama_divisi ?? '-';
                     document.getElementById('d_nomor').innerText = data.nomor_dokumen ?? '-';
-                    document.getElementById('d_tanggal').innerText = formatTanggal(data.created_at);
+                    document.getElementById('d_tanggal').innerText = formatTanggalSafe(data.created_at);
 
                     // DETAIL ITEMS
                     let html = '';
@@ -405,10 +419,13 @@ document.addEventListener('DOMContentLoaded', function () {
     </script>
     
     <script>
-    document.getElementById('checkAll').onclick = function(){
-        document.querySelectorAll('input[name="ids[]"]').forEach(cb => {
-            cb.checked = this.checked;
-        });
+    const checkAllEl = document.getElementById('checkAll');
+    if (checkAllEl) {
+        checkAllEl.onclick = function(){
+            document.querySelectorAll('input[name="ids[]"]').forEach(cb => {
+                cb.checked = this.checked;
+            });
+        }
     }
     </script>
 
@@ -416,11 +433,125 @@ document.addEventListener('DOMContentLoaded', function () {
     <script>
         window.addEventListener('load', function () {
             window.open(
-                "{{ route('request.pdf.serah', ['id' => session('print_serah'), 'doc' => session('print_serah_doc')]) }}",
+                "{{ route('request.pdf.serah', ['id' => session('print_serah'), 'doc' => session('print_serah_doc')]) }}?token={{ session('print_serah_token') }}",
                 '_blank'
             );
         });
     </script>
     @endif
+
+    @if(session('print_checklist'))
+    <script>
+        window.addEventListener('load', function () {
+            window.open(
+                "{{ route('request.pdf', ['id' => session('print_checklist'), 'doc' => session('print_checklist_doc')]) }}",
+                '_blank'
+            );
+        });
+    </script>
+    @endif
+
+    @if(session('print_approval_ids'))
+    <script>
+        window.addEventListener('load', function () {
+            window.open(
+                "{{ route('approval.pdf.sm', ['ids' => session('print_approval_ids'), 'doc' => session('print_approval_doc')]) }}",
+                '_blank'
+            );
+        });
+    </script>
+    @endif
+
+    <script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const forms = document.querySelectorAll('.js-pga-action-form');
+
+        forms.forEach(form => {
+            form.addEventListener('submit', async function (e) {
+                e.preventDefault();
+
+                const printWindow = window.open('about:blank', '_blank');
+                const submitBtn = form.querySelector('button[type="submit"]');
+                if (submitBtn) submitBtn.disabled = true;
+
+                try {
+                    const response = await fetch(form.action, {
+                        method: 'POST',
+                        body: new FormData(form),
+                        headers: {
+                            'Accept': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest',
+                        },
+                    });
+
+                    const data = await response.json();
+                    if (!response.ok || !data.pdf_url) {
+                        throw new Error(data.message || 'Gagal memproses request');
+                    }
+
+                    if (printWindow) {
+                        printWindow.location.href = data.pdf_url;
+                    }
+
+                    window.location.href = "{{ route('request.index') }}";
+                } catch (error) {
+                    if (printWindow) {
+                        printWindow.close();
+                    }
+
+                    if (submitBtn) submitBtn.disabled = false;
+                    alert(error.message || 'Gagal memproses request');
+                }
+            });
+        });
+    });
+    </script>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const smForms = document.querySelectorAll('.js-sm-approve-form');
+
+        smForms.forEach(form => {
+            form.addEventListener('submit', async function (e) {
+                e.preventDefault();
+
+                const printWindow = window.open('about:blank', '_blank');
+                const submitBtn = form.querySelector('button[type="submit"]');
+                if (submitBtn) submitBtn.disabled = true;
+
+                try {
+                    const response = await fetch(form.action, {
+                        method: 'POST',
+                        body: new FormData(form),
+                        headers: {
+                            'Accept': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest',
+                        },
+                    });
+
+                    const data = await response.json();
+                    if (!response.ok) {
+                        throw new Error(data.message || 'Gagal approve request');
+                    }
+
+                    if (data.pdf_url && printWindow) {
+                        printWindow.location.href = data.pdf_url;
+                    } else if (printWindow) {
+                        printWindow.close();
+                    }
+
+                    window.location.href = "{{ route('request.index') }}";
+                } catch (error) {
+                    if (printWindow) {
+                        printWindow.close();
+                    }
+
+                    if (submitBtn) submitBtn.disabled = false;
+                    alert(error.message || 'Gagal approve request');
+                }
+            });
+        });
+    });
+    </script>
 
 @endsection

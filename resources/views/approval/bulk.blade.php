@@ -8,11 +8,6 @@
 
         <form id="bulkApprovalForm" method="POST" action="{{ route('approval.bulk.process') }}">
             @csrf
-            @php
-                $totalItem = 0;
-                $totalQty = 0;
-                $totalEstimasi = 0;
-            @endphp
             <table>
                 <thead>
                     <tr>
@@ -33,22 +28,21 @@
                         @foreach($req->details as $d)
 
                             @php
-                                $stok = $d->barang->stok ?? 0;
-                                $kurang = max(0, $d->qty - $stok);
-                                $harga = $d->harga_manual 
-                                    ?? ($d->barang->harga_estimasi ?? 0);
-
-                                $estimasi = $kurang * $harga;
+                                $stok = (int) ($d->barang->stok ?? 0);
+                                $harga = (int) ($d->harga_manual ?? ($d->barang->harga_estimasi ?? 0));
                             @endphp
 
-                            <tr>
+                            <tr class="request-row">
                                 <td>
                                     <input type="checkbox" 
                                         class="check-item"
                                         name="ids[]" 
                                         value="{{ $req->id }}"
                                         data-qty="{{ $d->qty }}"
-                                        data-estimasi="{{ $estimasi }}">
+                                        data-estimasi="0"
+                                        data-barang-id="{{ $d->barang_id }}"
+                                        data-stok="{{ $stok }}"
+                                        data-harga="{{ $harga }}">
                                 </td>
 
                                 <td>{{ $req->nomor_dokumen }}</td>
@@ -58,29 +52,12 @@
                                 <td>{{ $d->keterangan ?? '-' }}</td>
                                 <td>{{ $d->qty }}</td>
 
-                                <td>
-                                    @if($kurang > 0)
-                                        <span style="color:red;">Kurang</span>
-                                    @else
-                                        <span style="color:green;">Ada stok</span>
-                                    @endif
+                                <td class="stock-status">
+                                    <span>-</span>
                                 </td>
 
-                                <td>Rp {{ number_format($estimasi, 0, ',', '.') }}</td>
+                                <td class="estimasi-cell">Rp 0</td>
                             </tr>
-                            @php
-                                $stok = $d->barang->stok ?? 0;
-                                $kurang = max(0, $d->qty - $stok);
-
-                                $harga = $d->harga_manual 
-                                    ?? ($d->barang->harga_estimasi ?? 0);
-
-                                $estimasi = $kurang * $harga;
-
-                                $totalItem++;
-                                $totalQty += $d->qty;
-                                $totalEstimasi += $estimasi;
-                            @endphp
                         @endforeach
                     @endforeach
                 </tbody>
@@ -141,6 +118,7 @@
 <script>
 
 document.addEventListener('DOMContentLoaded', function(){
+    const userRole = @json(auth()->user()->role);
 
     const form = document.getElementById('bulkApprovalForm');
     const modalApprove = document.getElementById('modalApprove');
@@ -149,7 +127,7 @@ document.addEventListener('DOMContentLoaded', function(){
     const btnConfirmApprove = document.getElementById('btnConfirmApprove');
 
     const checkAll = document.getElementById('checkAll');
-    const checkboxes = document.querySelectorAll('.check-item');
+    const checkboxes = Array.from(document.querySelectorAll('.check-item'));
 
     const totalItemEl = document.getElementById('totalItem');
     const totalQtyEl = document.getElementById('totalQty');
@@ -162,10 +140,56 @@ document.addEventListener('DOMContentLoaded', function(){
         return 'Rp ' + angka.toLocaleString('id-ID');
     }
 
+    function renderStatusStok(){
+        const checkedItems = checkboxes.filter(cb => cb.checked);
+        const activeItems = checkedItems.length > 0 ? checkedItems : checkboxes;
+        const sisaStokMap = {};
+
+        checkboxes.forEach(cb => {
+            const row = cb.closest('tr');
+            const statusEl = row.querySelector('.stock-status');
+            const estimasiEl = row.querySelector('.estimasi-cell');
+
+            if(!statusEl || !estimasiEl) return;
+
+            const isActive = activeItems.includes(cb);
+            const qty = parseInt(cb.dataset.qty || 0, 10);
+            const barangId = cb.dataset.barangId;
+            const stokAwal = parseInt(cb.dataset.stok || 0, 10);
+            const harga = parseInt(cb.dataset.harga || 0, 10);
+
+            if(!isActive){
+                cb.dataset.estimasi = 0;
+                statusEl.innerHTML = '<span style="color:#94a3b8;">-</span>';
+                estimasiEl.innerText = 'Rp 0';
+                return;
+            }
+
+            if(!(barangId in sisaStokMap)){
+                sisaStokMap[barangId] = stokAwal;
+            }
+
+            const sisaSebelum = sisaStokMap[barangId];
+            const kurang = Math.max(0, qty - sisaSebelum);
+            const estimasi = kurang * harga;
+            sisaStokMap[barangId] = Math.max(0, sisaSebelum - qty);
+            cb.dataset.estimasi = estimasi;
+
+            if(kurang > 0){
+                statusEl.innerHTML = '<span style="color:red;">Kurang</span>';
+            } else {
+                statusEl.innerHTML = '<span style="color:green;">Ada stok</span>';
+            }
+
+            estimasiEl.innerText = formatRupiah(estimasi);
+        });
+    }
+
     // =========================
     // HITUNG TOTAL
     // =========================
     function hitungTotal(){
+        renderStatusStok();
 
         let totalItem = 0;
         let totalQty = 0;
@@ -174,8 +198,8 @@ document.addEventListener('DOMContentLoaded', function(){
         checkboxes.forEach(cb => {
             if(cb.checked){
                 totalItem++;
-                totalQty += parseInt(cb.dataset.qty || 0);
-                totalEstimasi += parseInt(cb.dataset.estimasi || 0);
+                totalQty += parseInt(cb.dataset.qty || 0, 10);
+                totalEstimasi += parseInt(cb.dataset.estimasi || 0, 10);
             }
         });
 
@@ -203,11 +227,14 @@ document.addEventListener('DOMContentLoaded', function(){
         cb.addEventListener('change', function(){
 
             // update checkAll status
-            checkAll.checked = [...checkboxes].every(c => c.checked);
+            checkAll.checked = checkboxes.every(c => c.checked);
 
             hitungTotal();
         });
     });
+
+    // initial render
+    hitungTotal();
 
     // =========================
     // MODAL APPROVE (CUSTOM)
@@ -225,9 +252,47 @@ document.addEventListener('DOMContentLoaded', function(){
     }
 
     if(btnConfirmApprove){
-        btnConfirmApprove.addEventListener('click', function(){
+        btnConfirmApprove.addEventListener('click', async function(){
             modalApprove.classList.remove('show');
-            form.submit();
+
+            if (userRole !== 'SM') {
+                form.submit();
+                return;
+            }
+
+            const printWindow = window.open('about:blank', '_blank');
+            btnConfirmApprove.disabled = true;
+
+            try {
+                const response = await fetch(form.action, {
+                    method: 'POST',
+                    body: new FormData(form),
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                });
+
+                const data = await response.json();
+                if (!response.ok) {
+                    throw new Error(data.message || 'Gagal approve bulk');
+                }
+
+                if (data.pdf_url && printWindow) {
+                    printWindow.location.href = data.pdf_url;
+                } else if (printWindow) {
+                    printWindow.close();
+                }
+
+                window.location.href = "{{ route('approval.bulk') }}";
+            } catch (error) {
+                if (printWindow) {
+                    printWindow.close();
+                }
+
+                btnConfirmApprove.disabled = false;
+                alert(error.message || 'Gagal approve bulk');
+            }
         });
     }
 
@@ -268,4 +333,15 @@ document.addEventListener('DOMContentLoaded', function () {
 
 });
 </script>
+
+@if(session('print_approval_ids'))
+<script>
+window.addEventListener('load', function () {
+    window.open(
+        "{{ route('approval.pdf.sm', ['ids' => session('print_approval_ids'), 'doc' => session('print_approval_doc')]) }}",
+        '_blank'
+    );
+});
+</script>
+@endif
 @endsection
