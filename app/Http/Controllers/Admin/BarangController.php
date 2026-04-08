@@ -36,6 +36,17 @@ class BarangController extends Controller
             'unit' => 'required',
             'stok' => 'required|numeric',
             'harga_estimasi' => 'required|numeric'
+        ], [
+            'kode_barang.required' => 'Kode barang wajib diisi.',
+            'kode_barang.unique' => 'Kode barang sudah terpakai, silakan gunakan kode lain.',
+            'nama_barang.required' => 'Nama barang wajib diisi.',
+            'fraction.required' => 'Fraction wajib diisi.',
+            'fraction.numeric' => 'Fraction harus berupa angka.',
+            'unit.required' => 'Unit wajib diisi.',
+            'stok.required' => 'Stok wajib diisi.',
+            'stok.numeric' => 'Stok harus berupa angka.',
+            'harga_estimasi.required' => 'Harga estimasi wajib diisi.',
+            'harga_estimasi.numeric' => 'Harga estimasi harus berupa angka.'
         ]);
 
         Barang::create($request->all());
