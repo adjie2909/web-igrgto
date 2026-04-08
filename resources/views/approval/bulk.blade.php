@@ -18,6 +18,7 @@
                         <th>Barang</th>
                         <th>Keterangan</th>
                         <th>Qty</th>
+                        <th>Gambar</th>
                         <th>Status Stok</th>
                         <th>Estimasi</th>
                     </tr>
@@ -51,6 +52,20 @@
                                 <td>{{ $d->barang->nama_barang ?? '-' }}</td>
                                 <td>{{ $d->keterangan ?? '-' }}</td>
                                 <td>{{ $d->qty }}</td>
+                                <td>
+                                    @if(!empty($d->image))
+                                        <div style="display:flex; align-items:center; gap:8px;">
+                                            <img src="/storage/{{ $d->image }}" alt="gambar item"
+                                                style="width:44px; height:44px; object-fit:cover; border-radius:6px; border:1px solid #e2e8f0;">
+                                            <button type="button" class="btn btn-outline"
+                                                onclick='showImage(@json($d->image))'>
+                                                Lihat
+                                            </button>
+                                        </div>
+                                    @else
+                                        -
+                                    @endif
+                                </td>
 
                                 <td class="stock-status">
                                     <span>-</span>
@@ -306,6 +321,43 @@ document.addEventListener('DOMContentLoaded', function(){
 
 });
 
+</script>
+<script>
+function showImage(img) {
+    const modal = document.createElement('div');
+
+    modal.style = `
+        position:fixed;
+        top:0;left:0;
+        width:100%;height:100%;
+        background:rgba(0,0,0,0.7);
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        z-index:9999;
+    `;
+
+    modal.innerHTML = `
+        <div style="position:relative;">
+            <img src="/storage/${img}" style="max-width:85vw; max-height:85vh; border-radius:10px;">
+            <button style="
+                position:absolute;
+                top:-10px; right:-10px;
+                background:red; color:white;
+                border:none; border-radius:50%;
+                width:30px; height:30px; cursor:pointer;
+            " onclick="this.parentElement.parentElement.remove()">×</button>
+        </div>
+    `;
+
+    modal.onclick = function (e) {
+        if (e.target === modal) {
+            modal.remove();
+        }
+    };
+
+    document.body.appendChild(modal);
+}
 </script>
 <script>
 document.addEventListener('DOMContentLoaded', function () {

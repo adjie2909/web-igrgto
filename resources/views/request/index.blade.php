@@ -4,7 +4,7 @@
 
     <style>
         .btn-aksi-size {
-            width: 72px;
+            width: 88px;
             height: 34px;
             padding: 0 10px;
             text-align: center;
@@ -13,6 +13,17 @@
             justify-content: center;
             white-space: nowrap;
             box-sizing: border-box;
+        }
+
+        .aksi-group {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .aksi-group form {
+            margin: 0;
         }
     </style>
 
@@ -86,18 +97,18 @@
                             {{-- APPROVER (Approve + Reject) --}}
                             @if($isApprover && $req->status == 0)
 
-                                <div style="display:flex; gap:6px;">
+                                <div class="aksi-group">
                                     <button class="btn btn-outline btn-detail btn-aksi-size" data-json='@json($req)'>
                                         Detail
                                     </button>
                                     <form method="POST" action="{{ route('approval.approve', $req->id) }}" class="{{ $user->role == 'SM' ? 'js-sm-approve-form' : '' }}">
                                         @csrf
-                                        <button class="btn btn-blue">
+                                        <button class="btn btn-blue btn-aksi-size">
                                             Approve
                                         </button>
                                     </form>
 
-                                    <button type="button" class="btn btn-gray btn-reject" data-id="{{ $req->id }}">
+                                    <button type="button" class="btn btn-gray btn-reject btn-aksi-size" data-id="{{ $req->id }}">
                                         Reject
                                     </button>
 
@@ -108,29 +119,33 @@
 
                             {{-- PGA PROSES --}}
                             @if($user->role == 'PGA' && $req->status == 1)
-                                <button class="btn btn-outline btn-detail btn-aksi-size" data-json='@json($req)'>
-                                    Detail
-                                </button>
-                                <form method="POST" action="{{ route('proses', $req->id) }}" style="display:inline;" class="js-pga-action-form">
-                                    @csrf
-                                    <button type="submit" class="btn btn-outline btn-aksi-size">
-                                        Proses
+                                <div class="aksi-group">
+                                    <button class="btn btn-outline btn-detail btn-aksi-size" data-json='@json($req)'>
+                                        Detail
                                     </button>
-                                </form>
+                                    <form method="POST" action="{{ route('proses', $req->id) }}" class="js-pga-action-form">
+                                        @csrf
+                                        <button type="submit" class="btn btn-outline btn-aksi-size">
+                                            Proses
+                                        </button>
+                                    </form>
+                                </div>
                             @endif
 
                             
                             {{-- PGA SELESAI --}}
                             @if($user->role == 'PGA' && $req->status == 2)
-                                <button class="btn btn-outline btn-detail btn-aksi-size" data-json='@json($req)'>
-                                    Detail
-                                </button>
-                                <form method="POST" action="{{ route('selesai', $req->id) }}" style="display:inline;" class="js-pga-action-form">
-                                    @csrf
-                                    <button type="submit" class="btn btn-outline btn-aksi-size">
-                                        Selesai
+                                <div class="aksi-group">
+                                    <button class="btn btn-outline btn-detail btn-aksi-size" data-json='@json($req)'>
+                                        Detail
                                     </button>
-                                </form>
+                                    <form method="POST" action="{{ route('selesai', $req->id) }}" class="js-pga-action-form">
+                                        @csrf
+                                        <button type="submit" class="btn btn-outline btn-aksi-size">
+                                            Selesai
+                                        </button>
+                                    </form>
+                                </div>
                             @endif
 
 
@@ -202,7 +217,7 @@
     {{-- MODAL DETAIL --}}
 
     <div id="modalDetail" class="modal">
-        <div class="modal-content" style="width:600px;">
+        <div class="modal-content" style="width:min(1100px, 95vw);">
 
             <h3 style="margin-bottom:15px;">Detail Request</h3>
 
@@ -236,6 +251,7 @@
                         <th>Barang</th>
                         <th>Keterangan</th>
                         <th>Qty</th>
+                        <th>Estimasi Harga</th>
                         <th>Gambar</th>
                     </tr>
                 </thead>
@@ -313,17 +329,20 @@ document.addEventListener('DOMContentLoaded', function () {
 
             const modalDetail = document.getElementById('modalDetail');
             const closeDetail = document.getElementById('closeDetail');
-            const formatTanggalSafe = (typeof formatTanggal === 'function')
-                ? formatTanggal
-                : function(datetime){
-                    if(!datetime) return '-';
-                    const date = new Date(datetime);
-                    if(isNaN(date.getTime())) return datetime;
-                    const day = String(date.getDate()).padStart(2, '0');
-                    const month = String(date.getMonth() + 1).padStart(2, '0');
-                    const year = date.getFullYear();
-                    return `${day}-${month}-${year}`;
-                };
+
+            function formatRupiah(angka) {
+                return 'Rp ' + Number(angka || 0).toLocaleString('id-ID');
+            }
+
+            function formatTanggalSafe(datetime){
+                if(!datetime) return '-';
+                const date = new Date(datetime);
+                if(isNaN(date.getTime())) return datetime;
+                const day = String(date.getDate()).padStart(2, '0');
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const year = date.getFullYear();
+                return `${day}-${month}-${year}`;
+            }
 
             document.querySelectorAll('.btn-detail').forEach(btn => {
                 btn.addEventListener('click', function () {
@@ -331,20 +350,23 @@ document.addEventListener('DOMContentLoaded', function () {
                     const data = JSON.parse(this.dataset.json);
 
                     // HEADER
-                    document.getElementById('d_user').innerText = data.user.name;
-                    document.getElementById('d_division').innerText = data.user.division?.nama_divisi ?? '-';
+                    document.getElementById('d_user').innerText = data.user?.name ?? '-';
+                    document.getElementById('d_division').innerText = data.user?.division?.nama_divisi ?? '-';
                     document.getElementById('d_nomor').innerText = data.nomor_dokumen ?? '-';
                     document.getElementById('d_tanggal').innerText = formatTanggalSafe(data.created_at);
 
                     // DETAIL ITEMS
                     let html = '';
 
-                    data.details.forEach(item => {
-                        html += `
+                    if (data.details && data.details.length > 0) {
+                        data.details.forEach(item => {
+                            const estimasiHarga = item.harga_manual ?? item.barang?.harga_estimasi ?? 0;
+                            html += `
                                     <tr>
-                                        <td>${item.barang?.nama_barang }</td>
+                                        <td>${item.barang?.nama_barang ?? "-"}</td>
                                         <td>${item.keterangan ?? "-"}</td>
                                         <td>${item.qty}</td>
+                                        <td>${formatRupiah(estimasiHarga)}</td>
                                         <td>
                                             ${item.image
                                 ? `<button class="btn btn-outline" onclick="showImage('${item.image}')">
@@ -355,7 +377,10 @@ document.addEventListener('DOMContentLoaded', function () {
                                         </td>
                                     </tr>
                                 `;
-                    });
+                        });
+                    } else {
+                        html = `<tr><td colspan="5">Tidak ada data</td></tr>`;
+                    }
 
                     document.getElementById('d_items').innerHTML = html;
 
