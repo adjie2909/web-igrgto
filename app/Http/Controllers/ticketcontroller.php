@@ -2,27 +2,58 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
+use App\Mail\SystemNotificationMail;
 use App\Models\Ticket;
 use App\Models\TicketReply;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
+use Throwable;
 
 class TicketController extends Controller
 {
-    // 🔥 CONSTANT DIVISI
     const DIV_EDP = 9;
     const DIV_PGA = 10;
     const DIV_ADMIN = 14;
+    const TEST_NOTIFICATION_EMAIL = 'edp@gto.indogrosir.co.id';
+
+    private function sendTicketNotification(Ticket $ticket, string $event): void
+    {
+        $ticket->loadMissing('user.division');
+
+        $eventLabel = match ($event) {
+            'created' => 'Ticket Baru',
+            'reply' => 'Balasan Ticket',
+            'escalated' => 'Ticket Eskalasi ke PGA',
+            'closed' => 'Ticket Ditutup',
+            default => 'Update Ticket',
+        };
+
+        $mailData = [
+            'subject' => "{$eventLabel} - #{$ticket->id} {$ticket->judul}",
+            'ticket' => $ticket,
+            'event' => $event,
+            'requester_name' => $ticket->user->name ?? '-',
+            'division_name' => $ticket->user->division->nama_divisi ?? '-',
+        ];
+
+        try {
+            Mail::to([self::TEST_NOTIFICATION_EMAIL])->send(new SystemNotificationMail($mailData, 'ticket'));
+        } catch (Throwable $e) {
+            Log::warning('Gagal kirim notifikasi ticket', [
+                'ticket_id' => $ticket->id,
+                'event' => $event,
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
 
     public function index()
     {
         $user = auth()->user();
         $divisionId = $user->division_id;
 
-        // =========================
-        // 🔥 DIVISI KHUSUS (LIHAT SEMUA + GROUP)
-        // =========================
-        if (in_array($divisionId, [9, 10, 14])) {
-
+        if (in_array($divisionId, [self::DIV_EDP, self::DIV_PGA, self::DIV_ADMIN])) {
             $tickets = Ticket::with('user.division')
                 ->latest()
                 ->get();
@@ -30,12 +61,7 @@ class TicketController extends Controller
             $groupedTickets = $tickets->groupBy(function ($t) {
                 return $t->user->division->nama_divisi ?? 'LAINNYA';
             });
-
         } else {
-
-            // =========================
-            // 🔥 DIVISI BIASA (HANYA SENDIRI)
-            // =========================
             $tickets = Ticket::with('user.division')
                 ->whereHas('user', function ($q) use ($divisionId) {
                     $q->where('division_id', $divisionId);
@@ -43,12 +69,9 @@ class TicketController extends Controller
                 ->latest()
                 ->get();
 
-            $groupedTickets = collect(); // biar aman
+            $groupedTickets = collect();
         }
 
-        // =========================
-        // SUMMARY
-        // =========================
         $total = $tickets->count();
         $open = $tickets->where('status', 0)->count();
         $proses = $tickets->where('status', 1)->count();
@@ -81,10 +104,12 @@ class TicketController extends Controller
             'user_id' => auth()->id(),
             'judul' => $request->judul,
             'deskripsi' => $request->deskripsi,
-            'status' => 0, // open
-            'level' => 1, // 🔥 masuk ke EDP dulu
-            'current_handler' => 'EDP'
+            'status' => 0,
+            'level' => 1,
+            'current_handler' => 'EDP',
         ]);
+
+        $this->sendTicketNotification($ticket, 'created');
 
         return redirect()->route('ticket.index')
             ->with('success', 'Ticket berhasil dibuat');
@@ -95,14 +120,8 @@ class TicketController extends Controller
         $ticket = Ticket::with('replies.user')->findOrFail($id);
         $user = auth()->user();
 
-        // =========================
-        // 🔥 AUTO UPDATE STATUS
-        // =========================
-        if (
-            $user->division_id == 9 &&   // EDP
-            $ticket->status == 0         // masih OPEN
-        ) {
-            $ticket->status = 1; // jadi DIPROSES
+        if ($user->division_id == self::DIV_EDP && $ticket->status == 0) {
+            $ticket->status = 1;
             $ticket->save();
         }
 
@@ -113,20 +132,21 @@ class TicketController extends Controller
     {
         $ticket = Ticket::findOrFail($id);
 
-        // 🔥 CEGAH REPLY JIKA SUDAH CLOSED
         if ($ticket->status == 2) {
             return back()->with('error', 'Ticket sudah ditutup, tidak bisa diskusi lagi');
         }
 
         $request->validate([
-            'message' => 'required'
+            'message' => 'required',
         ]);
 
         TicketReply::create([
             'ticket_id' => $id,
             'user_id' => auth()->id(),
-            'message' => $request->message
+            'message' => $request->message,
         ]);
+
+        $this->sendTicketNotification($ticket, 'reply');
 
         return back()->with('success', 'Balasan dikirim');
     }
@@ -148,14 +168,15 @@ class TicketController extends Controller
         $ticket->level = 2;
         $ticket->current_handler = 'PGA';
         $ticket->status = 1;
-
         $ticket->save();
 
         TicketReply::create([
             'ticket_id' => $ticket->id,
             'user_id' => auth()->id(),
-            'message' => 'Ticket dieskalasi ke PGA'
+            'message' => 'Ticket dieskalasi ke PGA',
         ]);
+
+        $this->sendTicketNotification($ticket, 'escalated');
 
         return back()->with('success', 'Ticket berhasil dieskalasi ke PGA');
     }
@@ -164,7 +185,6 @@ class TicketController extends Controller
     {
         $ticket = Ticket::findOrFail($id);
 
-        // 🔥 kalau sudah closed, skip
         if ($ticket->status == 2) {
             return back()->with('error', 'Ticket sudah ditutup');
         }
@@ -175,8 +195,10 @@ class TicketController extends Controller
         TicketReply::create([
             'ticket_id' => $ticket->id,
             'user_id' => auth()->id(),
-            'message' => 'Ticket ditutup'
+            'message' => 'Ticket ditutup',
         ]);
+
+        $this->sendTicketNotification($ticket, 'closed');
 
         return back()->with('success', 'Ticket ditutup');
     }

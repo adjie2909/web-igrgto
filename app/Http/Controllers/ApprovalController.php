@@ -2,14 +2,21 @@
 
 namespace App\Http\Controllers;
 
+use App\Mail\SystemNotificationMail;
+use App\Models\DivisionApprover;
 use App\Models\RequestHeader;
+use App\Models\User;
 use Barryvdh\DomPDF\Facade\Pdf;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
+use Throwable;
 
 class ApprovalController extends Controller
 {
+    private const TEST_NOTIFICATION_EMAIL = 'edp@gto.indogrosir.co.id';
+
     private function getAvailableStockMap(array $barangIds): array
     {
         $ids = collect($barangIds)->map(fn($id) => (int) $id)->filter()->unique()->values();
@@ -54,6 +61,179 @@ class ApprovalController extends Controller
         }
 
         return strtoupper(str_replace('/', '-', $base));
+    }
+
+    private function sendApprovalNotification(RequestHeader $header): void
+    {
+        $header->loadMissing('user.division');
+
+        $targetRole = match ((int) $header->current_approval_level) {
+            1 => 'SJM',
+            2 => 'SAM',
+            3 => 'SM',
+            default => null,
+        };
+
+        if ($targetRole === null || !$header->user) {
+            return;
+        }
+
+        $emails = collect();
+
+        if ($targetRole === 'SM') {
+            $emails = User::where('role', 'SM')
+                ->whereNotNull('email')
+                ->pluck('email');
+        } else {
+            $approverUserIds = DivisionApprover::where('division_id', $header->user->division_id)
+                ->where('role', $targetRole)
+                ->whereNotNull('user_id')
+                ->pluck('user_id');
+
+            $emails = User::whereIn('id', $approverUserIds)
+                ->whereNotNull('email')
+                ->pluck('email');
+        }
+
+        $emails = collect([self::TEST_NOTIFICATION_EMAIL]);
+
+        $mailData = [
+            'subject' => "Permintaan Approval {$targetRole} - {$header->nomor_dokumen}",
+            'request' => $header,
+            'requester_name' => $header->user->name,
+            'division_name' => $header->user->division->nama_divisi ?? '-',
+            'target_role' => $targetRole,
+        ];
+
+        try {
+            Mail::to($emails->all())->send(new SystemNotificationMail($mailData, 'request'));
+        } catch (Throwable $e) {
+            Log::warning('Gagal kirim notifikasi approval berjenjang', [
+                'request_id' => $header->id,
+                'target_role' => $targetRole,
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    private function sendFinalApprovalPdfNotification(array $requestIds): void
+    {
+        $idList = collect($requestIds)
+            ->map(fn($id) => (int) $id)
+            ->filter(fn($id) => $id > 0)
+            ->unique()
+            ->values();
+
+        if ($idList->isEmpty()) {
+            return;
+        }
+
+        $requests = RequestHeader::with([
+            'user.division',
+            'details.barang',
+            'approverLevel2',
+            'approverLevel3',
+        ])
+            ->whereIn('id', $idList->all())
+            ->where('status', 1)
+            ->orderBy('id')
+            ->get();
+
+        if ($requests->isEmpty()) {
+            return;
+        }
+
+        $samName = $requests
+            ->pluck('approverLevel2.name')
+            ->filter()
+            ->unique()
+            ->implode(', ');
+
+        $smName = $requests
+            ->pluck('approverLevel3.name')
+            ->filter()
+            ->unique()
+            ->implode(', ');
+
+        $barangIds = $requests
+            ->flatMap(fn($req) => $req->details->pluck('barang_id'))
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+
+        $availableMap = $this->getAvailableStockMap($barangIds);
+        $detailStockInfo = [];
+
+        $qtyByBarangInSelection = [];
+        foreach ($requests as $req) {
+            foreach ($req->details as $detail) {
+                $barangId = (int) $detail->barang_id;
+                if ($barangId <= 0) {
+                    continue;
+                }
+                $qtyByBarangInSelection[$barangId] = (int) ($qtyByBarangInSelection[$barangId] ?? 0) + (int) $detail->qty;
+            }
+        }
+
+        foreach ($qtyByBarangInSelection as $barangId => $qtySelected) {
+            $availableMap[$barangId] = (int) ($availableMap[$barangId] ?? 0) + (int) $qtySelected;
+        }
+
+        foreach ($requests as $req) {
+            foreach ($req->details as $detail) {
+                $barangId = (int) $detail->barang_id;
+                $stokSebelum = max(0, (int) ($availableMap[$barangId] ?? 0));
+                $qty = (int) $detail->qty;
+                $kurang = max(0, $qty - $stokSebelum);
+                $harga = (int) ($detail->harga_manual ?? ($detail->barang->harga_estimasi ?? 0));
+                $estimasi = $kurang * $harga;
+
+                $detailStockInfo[$detail->id] = [
+                    'stok_realtime' => $stokSebelum,
+                    'kurang' => $kurang,
+                    'harga_satuan' => $harga,
+                    'estimasi' => $estimasi,
+                ];
+
+                $availableMap[$barangId] = $stokSebelum - $qty;
+            }
+        }
+
+        $doc = $requests->count() === 1
+            ? $this->formatDocForUrl($requests->first()->nomor_dokumen, 'APPROVAL-SM')
+            : 'APPROVAL-SM-' . implode('-', $requests->pluck('id')->all());
+
+        $pdf = Pdf::loadView('pdf.approval_sm', [
+            'requests' => $requests,
+            'samName' => $samName ?: 'SAM',
+            'smName' => $smName ?: 'SM',
+            'printedAt' => now(),
+            'detailStockInfo' => $detailStockInfo,
+        ]);
+
+        $fileName = $doc . '.pdf';
+        $firstRequest = $requests->first();
+
+        $mailData = [
+            'subject' => "Approval SM Selesai - {$doc}",
+            'request' => $firstRequest,
+            'requester_name' => $firstRequest->user->name ?? '-',
+            'division_name' => $firstRequest->user->division->nama_divisi ?? '-',
+            'target_role' => 'PGA',
+            'attachment_data' => $pdf->output(),
+            'attachment_name' => $fileName,
+            'attachment_mime' => 'application/pdf',
+        ];
+
+        try {
+            Mail::to([self::TEST_NOTIFICATION_EMAIL])->send(new SystemNotificationMail($mailData, 'request'));
+        } catch (Throwable $e) {
+            Log::warning('Gagal kirim email PDF approval SM ke PGA', [
+                'request_ids' => $requests->pluck('id')->all(),
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 
     /**
@@ -122,7 +302,13 @@ class ApprovalController extends Controller
 
         $request->save();
 
+        if (!$shouldPrintPdf) {
+            $this->sendApprovalNotification($request);
+        }
+
         if ($shouldPrintPdf) {
+            $this->sendFinalApprovalPdfNotification([(int) $request->id]);
+
             $doc = $this->formatDocForUrl($request->nomor_dokumen, 'APPROVAL-SM');
             $pdfUrl = route('approval.pdf.sm', [
                 'ids' => (string) $request->id,
@@ -233,6 +419,8 @@ class ApprovalController extends Controller
     public function bulkProcess(Request $request)
     {
         $user = auth()->user();
+        $requestsToNotify = collect();
+        $smApprovedIds = [];
 
         $ids = collect($request->ids ?? [])
             ->map(fn($id) => (int) $id)
@@ -269,9 +457,22 @@ class ApprovalController extends Controller
                 $req->approved_by_level3 = $user->id;
                 $req->approved_at_level3 = now();
                 $req->status = 1;
+                $smApprovedIds[] = (int) $req->id;
             }
 
             $req->save();
+
+            if ($user->role == 'SAM') {
+                $requestsToNotify->push($req);
+            }
+        }
+
+        foreach ($requestsToNotify as $requestToNotify) {
+            $this->sendApprovalNotification($requestToNotify);
+        }
+
+        if ($user->role == 'SM' && !empty($smApprovedIds)) {
+            $this->sendFinalApprovalPdfNotification($smApprovedIds);
         }
 
         // Auto reject untuk data yang tidak dipilih

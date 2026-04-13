@@ -17,26 +17,44 @@ class SystemNotificationMail extends Mailable
 
     public function build()
     {
-        // 🔥 TENTUKAN NAMA PENGIRIM
-        $fromName = match($this->type) {
+        $customFromName = is_array($this->data) ? ($this->data['from_name'] ?? null) : null;
+        $customSubject = is_array($this->data) ? ($this->data['subject'] ?? null) : null;
+        $attachmentData = is_array($this->data) ? ($this->data['attachment_data'] ?? null) : null;
+        $attachmentName = is_array($this->data) ? ($this->data['attachment_name'] ?? null) : null;
+        $attachmentMime = is_array($this->data) ? ($this->data['attachment_mime'] ?? 'application/pdf') : 'application/pdf';
+
+        $fromName = match ($this->type) {
             'request' => 'IGR - Permintaan Barang',
-            'ticket'  => 'IGR - Ticketing System',
-            default   => config('app.name'),
+            'ticket' => 'IGR - Ticketing System',
+            default => config('app.name'),
         };
 
-        // 🔥 SUBJECT DINAMIS
-        $subject = match($this->type) {
+        if (is_string($customFromName) && $customFromName !== '') {
+            $fromName = $customFromName;
+        }
+
+        $subject = match ($this->type) {
             'request' => 'Permintaan Barang Baru',
-            'ticket'  => 'Ticket Baru Dibuat',
-            default   => 'Notifikasi Sistem',
+            'ticket' => 'Ticket Baru Dibuat',
+            default => 'Notifikasi Sistem',
         };
 
-        return $this->from('oracle@gto.indogrosir.co.id', $fromName)
+        if (is_string($customSubject) && $customSubject !== '') {
+            $subject = $customSubject;
+        }
+
+        $mail = $this->from((string) config('mail.from.address'), $fromName)
             ->subject($subject)
             ->view('emails.system_notification')
             ->with([
                 'data' => $this->data,
-                'type' => $this->type
+                'type' => $this->type,
             ]);
+
+        if (is_string($attachmentData) && is_string($attachmentName) && $attachmentName !== '') {
+            $mail->attachData($attachmentData, $attachmentName, ['mime' => $attachmentMime]);
+        }
+
+        return $mail;
     }
 }

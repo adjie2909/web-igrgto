@@ -8,10 +8,15 @@ use App\Models\RequestHeader;
 use App\Models\RequestDetail;
 use App\Models\DivisionApprover;
 use App\Models\Barang;
+use App\Models\User;
+use App\Mail\SystemNotificationMail;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
+use Throwable;
 
 class RequestController extends Controller
 {
@@ -128,6 +133,59 @@ class RequestController extends Controller
 
         // pertahankan format nomor dokumen, ganti "/" jadi "-"
         return strtoupper(str_replace('/', '-', $base));
+    }
+
+    private function sendApprovalNotification(RequestHeader $header): void
+    {
+        $header->loadMissing('user.division');
+
+        $targetRole = match ((int) $header->current_approval_level) {
+            1 => 'SJM',
+            2 => 'SAM',
+            3 => 'SM',
+            default => null,
+        };
+
+        if ($targetRole === null || !$header->user) {
+            return;
+        }
+
+        $emails = collect();
+
+        if ($targetRole === 'SM') {
+            $emails = User::where('role', 'SM')
+                ->whereNotNull('email')
+                ->pluck('email');
+        } else {
+            $approverUserIds = DivisionApprover::where('division_id', $header->user->division_id)
+                ->where('role', $targetRole)
+                ->whereNotNull('user_id')
+                ->pluck('user_id');
+
+            $emails = User::whereIn('id', $approverUserIds)
+                ->whereNotNull('email')
+                ->pluck('email');
+        }
+
+        $emails = collect(['edp@gto.indogrosir.co.id']);
+
+        $mailData = [
+            'subject' => "Permintaan Approval {$targetRole} - {$header->nomor_dokumen}",
+            'request' => $header,
+            'requester_name' => $header->user->name,
+            'division_name' => $header->user->division->nama_divisi ?? '-',
+            'target_role' => $targetRole,
+        ];
+
+        try {
+            Mail::to($emails->all())->send(new SystemNotificationMail($mailData, 'request'));
+        } catch (Throwable $e) {
+            Log::warning('Gagal kirim notifikasi request approval', [
+                'request_id' => $header->id,
+                'target_role' => $targetRole,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 
     // ===============================
@@ -263,6 +321,8 @@ class RequestController extends Controller
                 'image' => $imagePath,
             ]);
         }
+
+        $this->sendApprovalNotification($header);
 
         return redirect()->route('request.index')
             ->with('success', 'Request berhasil dikirim');
