@@ -4,7 +4,7 @@
 
     <div class="card">
 
-        <h2 style="margin-bottom:20px;">Bulk Approval</h2>
+        <h2 style="margin-bottom:20px;">Approval</h2>
 
         <form id="bulkApprovalForm" method="POST" action="{{ route('approval.bulk.process') }}">
             @csrf
