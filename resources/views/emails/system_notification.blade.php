@@ -110,13 +110,16 @@
                         @endif
 
                         <p style="margin:20px 0 0; font-size:13px; color:#6b7280; line-height:1.6;">
-                            Mohon tidak membalas email ini. Notifikasi ini dikirim otomatis oleh sistem. (MASIH TESTING/SIMULASI)
+                            Mohon tidak membalas email ini. Notifikasi ini dikirim otomatis oleh sistem.
+                        </p>
+                        <p style="margin:20px 0 0; font-size:13px; color:#6b7280; line-height:1.6;">
+                            (MASIH TESTING/SIMULASI)
                         </p>
                     </td>
                 </tr>
                 <tr>
                     <td style="padding:14px 24px; background:#f8fafc; border-top:1px solid #e5e7eb; font-size:12px; color:#64748b;">
-                        &copy; {{ date('Y') }} IGR - Sistem Internal
+                        &copy; {{ date('Y') }} INDGROSIR-GORONTALO
                     </td>
                 </tr>
             </table>

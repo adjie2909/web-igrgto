@@ -20,6 +20,8 @@ use Throwable;
 
 class RequestController extends Controller
 {
+    private const EDP_NOTIFICATION_EMAIL = 'edp@gto.indogrosir.co.id';
+
     private function buildDetailStockInfo(RequestHeader $req, bool $addBackCurrentQty = false): array
     {
         $detailStockInfo = [];
@@ -167,7 +169,24 @@ class RequestController extends Controller
                 ->pluck('email');
         }
 
-        $emails = collect(['edp@gto.indogrosir.co.id']);
+        $emails = $emails
+            ->map(fn($email) => trim((string) $email))
+            ->filter()
+            ->unique()
+            ->values();
+
+        if ($emails->isEmpty()) {
+            Log::warning('Tidak ada email PIC approval untuk notifikasi request', [
+                'request_id' => $header->id,
+                'target_role' => $targetRole,
+            ]);
+
+            $emails = collect([self::EDP_NOTIFICATION_EMAIL]);
+        }
+
+        $ccEmails = collect([self::EDP_NOTIFICATION_EMAIL])
+            ->reject(fn($email) => $emails->contains($email))
+            ->values();
 
         $mailData = [
             'subject' => "Permintaan Approval {$targetRole} - {$header->nomor_dokumen}",
@@ -178,7 +197,13 @@ class RequestController extends Controller
         ];
 
         try {
-            Mail::to($emails->all())->send(new SystemNotificationMail($mailData, 'request'));
+            $mail = Mail::to($emails->all());
+
+            if ($ccEmails->isNotEmpty()) {
+                $mail->cc($ccEmails->all());
+            }
+
+            $mail->send(new SystemNotificationMail($mailData, 'request'));
         } catch (Throwable $e) {
             Log::warning('Gagal kirim notifikasi request approval', [
                 'request_id' => $header->id,

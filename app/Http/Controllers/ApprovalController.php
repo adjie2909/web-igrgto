@@ -15,7 +15,7 @@ use Throwable;
 
 class ApprovalController extends Controller
 {
-    private const TEST_NOTIFICATION_EMAIL = 'edp@gto.indogrosir.co.id';
+    private const EDP_NOTIFICATION_EMAIL = 'edp@gto.indogrosir.co.id';
 
     private function getAvailableStockMap(array $barangIds): array
     {
@@ -95,7 +95,24 @@ class ApprovalController extends Controller
                 ->pluck('email');
         }
 
-        $emails = collect([self::TEST_NOTIFICATION_EMAIL]);
+        $emails = $emails
+            ->map(fn($email) => trim((string) $email))
+            ->filter()
+            ->unique()
+            ->values();
+
+        if ($emails->isEmpty()) {
+            Log::warning('Tidak ada email PIC approval untuk notifikasi approval berjenjang', [
+                'request_id' => $header->id,
+                'target_role' => $targetRole,
+            ]);
+
+            $emails = collect([self::EDP_NOTIFICATION_EMAIL]);
+        }
+
+        $ccEmails = collect([self::EDP_NOTIFICATION_EMAIL])
+            ->reject(fn($email) => $emails->contains($email))
+            ->values();
 
         $mailData = [
             'subject' => "Permintaan Approval {$targetRole} - {$header->nomor_dokumen}",
@@ -106,7 +123,13 @@ class ApprovalController extends Controller
         ];
 
         try {
-            Mail::to($emails->all())->send(new SystemNotificationMail($mailData, 'request'));
+            $mail = Mail::to($emails->all());
+
+            if ($ccEmails->isNotEmpty()) {
+                $mail->cc($ccEmails->all());
+            }
+
+            $mail->send(new SystemNotificationMail($mailData, 'request'));
         } catch (Throwable $e) {
             Log::warning('Gagal kirim notifikasi approval berjenjang', [
                 'request_id' => $header->id,
@@ -227,7 +250,7 @@ class ApprovalController extends Controller
         ];
 
         try {
-            Mail::to([self::TEST_NOTIFICATION_EMAIL])->send(new SystemNotificationMail($mailData, 'request'));
+            Mail::to([self::EDP_NOTIFICATION_EMAIL])->send(new SystemNotificationMail($mailData, 'request'));
         } catch (Throwable $e) {
             Log::warning('Gagal kirim email PDF approval SM ke PGA', [
                 'request_ids' => $requests->pluck('id')->all(),
