@@ -531,9 +531,18 @@
 
                 <!-- DASHBOARD -->
                 <a href="{{ route('dashboard') }}"
-                class="nav-link {{ request()->is('dashboard*') || request()->is('request*') ? 'active' : '' }}">
+                class="nav-link {{ request()->is('dashboard*') || request()->is('request') || request()->is('request/*') ? 'active' : '' }}">
                     Permintaan Barang
                 </a>
+
+                @auth
+                    @if(!in_array(auth()->user()->role, ['SJM', 'SAM', 'SM']))
+                        <a href="{{ route('request-claim.index') }}"
+                        class="nav-link {{ request()->is('request-claim*') ? 'active' : '' }}">
+                            Pengambilan Barang
+                        </a>
+                    @endif
+                @endauth
 
                 <!-- TICKETING -->
                 <a href="{{ route('ticket.index') }}"

@@ -8,7 +8,6 @@ use App\Models\RequestHeader;
 use App\Models\RequestDetail;
 use App\Models\DivisionApprover;
 use App\Models\Barang;
-use App\Models\User;
 use App\Mail\SystemNotificationMail;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\Cache;
@@ -21,6 +20,24 @@ use Throwable;
 class RequestController extends Controller
 {
     private const EDP_NOTIFICATION_EMAIL = 'edp@gto.indogrosir.co.id';
+
+    private function getActiveClaimQtyMap(array $barangIds): array
+    {
+        $ids = collect($barangIds)->map(fn($id) => (int) $id)->filter()->unique()->values();
+        if ($ids->isEmpty()) {
+            return [];
+        }
+
+        return DB::table('request_claim_details')
+            ->join('request_claims', 'request_claims.id', '=', 'request_claim_details.claim_id')
+            ->whereIn('request_claim_details.barang_id', $ids->all())
+            ->whereIn('request_claims.status', [0, 1])
+            ->select('request_claim_details.barang_id', DB::raw('SUM(request_claim_details.qty) as total_qty'))
+            ->groupBy('request_claim_details.barang_id')
+            ->pluck('total_qty', 'request_claim_details.barang_id')
+            ->map(fn($qty) => (int) $qty)
+            ->toArray();
+    }
 
     private function buildDetailStockInfo(RequestHeader $req, bool $addBackCurrentQty = false): array
     {
@@ -117,10 +134,11 @@ class RequestController extends Controller
             ->groupBy('barangs.id', 'barangs.stok')
             ->get();
 
+        $activeClaimMap = $this->getActiveClaimQtyMap($ids->all());
         $result = [];
         foreach ($rows as $row) {
             // Jangan clamp ke 0 di sini; dipakai untuk rekonstruksi stok saat cetak PDF.
-            $result[(int) $row->id] = (int) $row->stok - (int) $row->total_request;
+            $result[(int) $row->id] = (int) $row->stok - (int) $row->total_request - (int) ($activeClaimMap[(int) $row->id] ?? 0);
         }
 
         return $result;
@@ -152,41 +170,7 @@ class RequestController extends Controller
             return;
         }
 
-        $emails = collect();
-
-        if ($targetRole === 'SM') {
-            $emails = User::where('role', 'SM')
-                ->whereNotNull('email')
-                ->pluck('email');
-        } else {
-            $approverUserIds = DivisionApprover::where('division_id', $header->user->division_id)
-                ->where('role', $targetRole)
-                ->whereNotNull('user_id')
-                ->pluck('user_id');
-
-            $emails = User::whereIn('id', $approverUserIds)
-                ->whereNotNull('email')
-                ->pluck('email');
-        }
-
-        $emails = $emails
-            ->map(fn($email) => trim((string) $email))
-            ->filter()
-            ->unique()
-            ->values();
-
-        if ($emails->isEmpty()) {
-            Log::warning('Tidak ada email PIC approval untuk notifikasi request', [
-                'request_id' => $header->id,
-                'target_role' => $targetRole,
-            ]);
-
-            $emails = collect([self::EDP_NOTIFICATION_EMAIL]);
-        }
-
-        $ccEmails = collect([self::EDP_NOTIFICATION_EMAIL])
-            ->reject(fn($email) => $emails->contains($email))
-            ->values();
+        $emails = collect([self::EDP_NOTIFICATION_EMAIL]);
 
         $mailData = [
             'subject' => "Permintaan Approval {$targetRole} - {$header->nomor_dokumen}",
@@ -197,13 +181,7 @@ class RequestController extends Controller
         ];
 
         try {
-            $mail = Mail::to($emails->all());
-
-            if ($ccEmails->isNotEmpty()) {
-                $mail->cc($ccEmails->all());
-            }
-
-            $mail->send(new SystemNotificationMail($mailData, 'request'));
+            Mail::to($emails->all())->send(new SystemNotificationMail($mailData, 'request'));
         } catch (Throwable $e) {
             Log::warning('Gagal kirim notifikasi request approval', [
                 'request_id' => $header->id,
@@ -213,13 +191,62 @@ class RequestController extends Controller
         }
     }
 
+    private function getRemainingQuotaBarangIdsByDivision(int $divisionId): array
+    {
+        $approvedDetails = RequestDetail::join('request_headers', 'request_headers.id', '=', 'request_details.request_id')
+            ->join('users', 'users.id', '=', 'request_headers.user_id')
+            ->where('users.division_id', $divisionId)
+            ->where('request_headers.status', 1)
+            ->whereNotNull('request_details.barang_id')
+            ->select('request_details.id', 'request_details.barang_id', 'request_details.qty')
+            ->get();
+
+        if ($approvedDetails->isEmpty()) {
+            return [];
+        }
+
+        $claimedMap = DB::table('request_claim_details')
+            ->join('request_claims', 'request_claims.id', '=', 'request_claim_details.claim_id')
+            ->whereIn('request_claim_details.request_detail_id', $approvedDetails->pluck('id')->all())
+            ->whereIn('request_claims.status', [0, 1, 2])
+            ->select('request_claim_details.request_detail_id', DB::raw('SUM(request_claim_details.qty) as total_qty'))
+            ->groupBy('request_claim_details.request_detail_id')
+            ->pluck('total_qty', 'request_claim_details.request_detail_id');
+
+        $remainingByBarang = [];
+
+        foreach ($approvedDetails as $detail) {
+            $barangId = (int) $detail->barang_id;
+            $remaining = (int) $detail->qty - (int) ($claimedMap[$detail->id] ?? 0);
+
+            if ($remaining > 0) {
+                $remainingByBarang[$barangId] = (int) ($remainingByBarang[$barangId] ?? 0) + $remaining;
+            }
+        }
+
+        return collect($remainingByBarang)
+            ->filter(fn($qty) => (int) $qty > 0)
+            ->keys()
+            ->map(fn($id) => (int) $id)
+            ->values()
+            ->all();
+    }
+
     // ===============================
     // FORM CREATE
     // ===============================
     public function create()
     {
+        $hiddenBarangIds = [];
+        if (auth()->check() && auth()->user()->role === 'USER') {
+            $hiddenBarangIds = $this->getRemainingQuotaBarangIdsByDivision((int) auth()->user()->division_id);
+        }
+
         $barangs = Barang::leftJoin('request_details', 'barangs.id', '=', 'request_details.barang_id')
             ->leftJoin('request_headers', 'request_details.request_id', '=', 'request_headers.id')
+            ->when(!empty($hiddenBarangIds), function ($query) use ($hiddenBarangIds) {
+                $query->whereNotIn('barangs.id', $hiddenBarangIds);
+            })
             ->select(
                 'barangs.*',
                 DB::raw("
@@ -234,8 +261,8 @@ class RequestController extends Controller
                 DB::raw("
                     GREATEST(
                         barangs.stok - COALESCE(SUM(
-                            CASE 
-                                WHEN request_headers.status IN (0,1,2) OR request_headers.status IS NULL
+                            CASE
+                                WHEN request_headers.status IN (0,1,2)
                                 THEN request_details.qty
                                 ELSE 0
                             END
@@ -257,7 +284,15 @@ class RequestController extends Controller
             )
             ->get();
 
-        return view('request.create', compact('barangs'));
+        $activeClaimMap = $this->getActiveClaimQtyMap($barangs->pluck('id')->all());
+        $barangs->transform(function ($barang) use ($activeClaimMap) {
+            $activeClaims = (int) ($activeClaimMap[(int) $barang->id] ?? 0);
+            $barang->total_request = (int) $barang->total_request + $activeClaims;
+            $barang->stok_tersedia = max(0, (int) $barang->stok - (int) $barang->total_request);
+            return $barang;
+        });
+
+        return view('request.create', compact('barangs', 'hiddenBarangIds'));
     }
 
     public function stock($id)
@@ -269,12 +304,19 @@ class RequestController extends Controller
             ->whereIn('request_headers.status', [0, 1, 2])
             ->sum('request_details.qty');
 
-        $stokTersedia = max(0, (int) $barang->stok - (int) $totalRequest);
+        $totalClaimAktif = (int) (DB::table('request_claim_details')
+            ->join('request_claims', 'request_claims.id', '=', 'request_claim_details.claim_id')
+            ->where('request_claim_details.barang_id', $barang->id)
+            ->whereIn('request_claims.status', [0, 1])
+            ->sum('request_claim_details.qty'));
+
+        $totalReserved = (int) $totalRequest + $totalClaimAktif;
+        $stokTersedia = max(0, (int) $barang->stok - $totalReserved);
 
         return response()->json([
             'barang_id' => (int) $barang->id,
             'stok_asli' => (int) $barang->stok,
-            'total_request' => (int) $totalRequest,
+            'total_request' => $totalReserved,
             'stok_tersedia' => (int) $stokTersedia,
             'unit' => $barang->unit,
         ]);
@@ -398,7 +440,7 @@ class RequestController extends Controller
 
         } elseif ($user->role == 'PGA') {
 
-            $query->whereIn('status', [1, 2]);
+            $query->where('status', 2);
 
         } else {
 

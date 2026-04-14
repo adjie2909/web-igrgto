@@ -63,7 +63,6 @@
                     + Buat Request
                 </a>
             @endif
-            {{-- 🔥 BULK APPROVAL KHUSUS SAM & SM --}}
             @if(in_array(auth()->user()->role, ['SAM', 'SM']))
                 <a href="{{ route('approval.bulk') }}" class="btn btn-blue">
                     Approval Permintaan

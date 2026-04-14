@@ -4,6 +4,7 @@ use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\ApprovalController;
 use App\Http\Controllers\RequestController;
+use App\Http\Controllers\RequestClaimController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\TicketController;
 
@@ -39,7 +40,16 @@ Route::middleware('auth')->group(function () {
     Route::post('/request/store', [RequestController::class, 'store'])->name('request.store');
     Route::get('/request/stock/{id}', [RequestController::class, 'stock'])->name('request.stock');
 
+    // AMBIL BARANG DARI KUOTA APPROVED
+    Route::get('/request-claim', [RequestClaimController::class, 'index'])->name('request-claim.index');
+    Route::post('/request-claim/store', [RequestClaimController::class, 'store'])->name('request-claim.store');
+    Route::post('/request-claim/{id}/process', [RequestClaimController::class, 'process'])->name('request-claim.process');
+    Route::post('/request-claim/{id}/complete', [RequestClaimController::class, 'complete'])->name('request-claim.complete');
+    Route::post('/request-claim/{id}/reject', [RequestClaimController::class, 'reject'])->name('request-claim.reject');
+    Route::get('/request-claim/pdf-serah/{id}/{doc?}', [RequestClaimController::class, 'pdfSerah'])->name('request-claim.pdf.serah');
+
     // APPROVAL
+    Route::get('approval/stock/{id}', [ApprovalController::class, 'stock'])->name('approval.stock');
     Route::post('approval/{id}/approve', [ApprovalController::class, 'approve'])->name('approval.approve');
 
     // REJECT

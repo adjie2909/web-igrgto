@@ -8,8 +8,14 @@
         <h2 style="margin-bottom:20px;">Form Request Barang</h2>
         <p style="font-size:13px; color:#64748b;">
             Silakan isi kebutuhan barang dengan lengkap <br>
-            Jika barang tidak tersedia didalam master barang, harap isi di keterangan
+            Jika barang tidak tersedia didalam master barang, harap pilih "Lain-lain" dan isi di keterangan
         </p>
+        @if(!empty($hiddenBarangIds))
+            <div style="margin:12px 0 0; padding:10px 12px; background:#fef9c3; border:1px solid #fde68a; border-radius:8px; color:#92400e;">
+                Beberapa barang disembunyikan karena masih ada sisa kuota approved di divisi Anda. Ambil barangnya lewat
+                <a href="{{ route('request-claim.index') }}" style="color:#1d4ed8; text-decoration:underline;">menu Ambil Kuota</a>.
+            </div>
+        @endif
 
         <form id="form-request" method="POST" action="{{ route('request.store') }}" enctype="multipart/form-data">
             @csrf
@@ -17,7 +23,7 @@
             <!-- TANGGAL -->
             <div style="margin-bottom:20px; max-width:300px; ">
                 <label style="display:block; margin-bottom:5px;">Tanggal Request</label>
-                <input type="date" name="tanggal_request" class="input">
+                <input type="date" name="tanggal_request" class="input" value="{{ now()->format('Y-m-d') }}" readonly>
             </div>
 
             <!-- TABLE -->
@@ -33,10 +39,11 @@
 
                 <tr>
                     <td>
-                        <select name="items[${index}][barang_id]" class="input barang-select">
+                        <select name="items[0][barang_id]" class="input barang-select">
                             <option value="">-- Pilih Barang --</option>
                             @foreach($barangs as $barang)
                                 <option value="{{ $barang->id }}" data-stok="{{ (int) ($barang->stok_tersedia ?? $barang->stok) }}"
+                                    data-stok-asli="{{ (int) $barang->stok }}"
                                     data-harga="{{ $barang->harga_estimasi }}" data-unit="{{ $barang->unit }}"
                                     data-terpakai="{{ (int) ($barang->total_request ?? 0) }}">
                                     {{ $barang->nama_barang }}
@@ -46,20 +53,20 @@
                     </td>
 
                     <td>
-                        <input type="number" name="items[${index}][qty]" class="input qty-input">
+                        <input type="number" name="items[0][qty]" class="input qty-input">
                         <div class="info-stok" style="font-size:12px; margin-top:5px;"></div>
                     </td>
 
                     <td>
-                        <textarea name="items[${index}][keterangan]" class="input keterangan-textarea"
+                        <textarea name="items[0][keterangan]" class="input keterangan-textarea"
                             placeholder="Isi jika barang tidak tersedia"></textarea>
                     </td>
                     <td>
-                        <input type="number" name="items[${index}][harga_manual]" class="input harga-input"
+                        <input type="number" name="items[0][harga_manual]" class="input harga-input"
                             placeholder="Harga" style="display:none;">
                     </td>
                     <td>
-                        <input type="file" name="items[${index}][image]" class="input">
+                        <input type="file" name="items[0][image]" class="input">
                     </td>
 
                     <td>
@@ -94,7 +101,7 @@
     </div>
 <script>
 let index = 1;
-const STOCK_URL_TEMPLATE = @json(route('request.stock', ['id' => '__ID__']));
+const APP_BASE_URL = @json(url('/'));
 
 // ===============================
 // FORMAT RUPIAH
@@ -104,13 +111,14 @@ function formatRupiah(angka) {
 }
 
 function buildStockUrl(barangId){
-    return STOCK_URL_TEMPLATE.replace('__ID__', String(barangId));
+    return `${APP_BASE_URL}/request/stock/${encodeURIComponent(barangId)}`;
 }
 
-function updateOptionStockData(barangId, stokTersedia, totalRequest, unit){
+function updateOptionStockData(barangId, stokTersedia, totalRequest, unit, stokAsli){
     document.querySelectorAll(`.barang-select option[value="${barangId}"]`).forEach(opt => {
         opt.dataset.stok = String(stokTersedia);
         opt.dataset.terpakai = String(totalRequest ?? 0);
+        opt.dataset.stokAsli = String(stokAsli ?? stokTersedia);
         if(unit){
             opt.dataset.unit = unit;
         }
@@ -128,14 +136,18 @@ async function refreshStockByBarangId(barangId){
             }
         });
 
-        if(!response.ok) return;
+        if(!response.ok) {
+            console.warn('Gagal membaca stok barang', barangId, response.status);
+            return;
+        }
 
         const data = await response.json();
         updateOptionStockData(
             data.barang_id,
             data.stok_tersedia,
             data.total_request,
-            data.unit
+            data.unit,
+            data.stok_asli
         );
     } catch (e) {
         // biarkan silent agar UX tetap mulus saat koneksi lambat
@@ -188,6 +200,7 @@ document.getElementById('btn-tambah').addEventListener('click', function () {
                         <option 
                             value="{{ $barang->id }}"
                             data-stok="{{ (int) ($barang->stok_tersedia ?? $barang->stok) }}"
+                            data-stok-asli="{{ (int) $barang->stok }}"
                             data-harga="{{ $barang->harga_estimasi }}"
                             data-unit="{{ $barang->unit }}"
                             data-terpakai="{{ (int) ($barang->total_request ?? 0) }}"
@@ -258,6 +271,8 @@ function hitungEstimasi(row){
     let selected = select.options[select.selectedIndex];
 
     let stok = parseInt(selected.dataset.stok || 0);
+    let stokAsli = parseInt(selected.dataset.stokAsli || stok);
+    let terpakai = parseInt(selected.dataset.terpakai || 0);
     let hargaDefault = parseInt(selected.dataset.harga || 0);
     let unit = selected.dataset.unit || '';
 
@@ -271,13 +286,17 @@ function hitungEstimasi(row){
 
     let info = row.querySelector('.info-stok');
 
-    let html = `<span>Stok: <b>${stok} ${unit}</b></span><br>`;
+    let html = `
+        {{-- <span>Stok master: <b>${stokAsli} ${unit}</b></span><br> --}}
+       {{-- <span>Terpakai request berjalan: <b>${terpakai} ${unit}</b></span><br>  --}}
+        <span>Sisa tersedia: <b>${stok} ${unit}</b></span><br>
+    `;
 
     if(kurang > 0){
         html += `<span style="color:red;">Kekurangan: ${kurang}</span><br>`;
         html += `<span style="color:green;">Estimasi Biaya: ${formatRupiah(estimasi)}</span>`;
     } else {
-        html += `<span style="color:green;">✔️ Stok cukup</span>`;
+        html += `<span style="color:green;">Stok cukup</span>`;
     }
 
     info.innerHTML = html;

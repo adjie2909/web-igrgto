@@ -37,9 +37,9 @@
                     Bulk Approval
                 </a>
             @endif
-            <a href="{{ route('request.create') }}" class="btn btn-primary">
+            <!-- <a href="{{ route('request.create') }}" class="btn btn-primary">
                 + Buat Request
-            </a>
+            </a> -->
         </div>
 
         <table>

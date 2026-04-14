@@ -20,4 +20,14 @@ class requestdetail extends Model
     {
         return $this->belongsTo(Barang::class, 'barang_id');
     }
+
+    public function requestHeader()
+    {
+        return $this->belongsTo(RequestHeader::class, 'request_id');
+    }
+
+    public function claimDetails()
+    {
+        return $this->hasMany(RequestClaimDetail::class, 'request_detail_id');
+    }
 }

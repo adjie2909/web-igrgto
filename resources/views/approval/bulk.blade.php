@@ -20,6 +20,8 @@
                         <th>Qty</th>
                         <th>Gambar</th>
                         <th>Status Stok</th>
+                        <th>Qty Sisa</th>
+                        <th>Qty Kurang</th>
                         <th>Estimasi</th>
                     </tr>
                 </thead>
@@ -29,7 +31,7 @@
                         @foreach($req->details as $d)
 
                             @php
-                                $stok = (int) ($d->barang->stok ?? 0);
+                                $stok = max(0, (int) ($availableStockMap[$d->barang_id] ?? ($d->barang->stok ?? 0)));
                                 $harga = (int) ($d->harga_manual ?? ($d->barang->harga_estimasi ?? 0));
                             @endphp
 
@@ -71,6 +73,8 @@
                                     <span>-</span>
                                 </td>
 
+                                <td class="qty-sisa-cell">0</td>
+                                <td class="qty-kurang-cell">0</td>
                                 <td class="estimasi-cell">Rp 0</td>
                             </tr>
                         @endforeach
@@ -134,6 +138,8 @@
 
 document.addEventListener('DOMContentLoaded', function(){
     const userRole = @json(auth()->user()->role);
+    const stockUrlTemplate = @json(route('approval.stock', ['id' => '__ID__']));
+    const currentRequestIds = @json($requests->pluck('id')->unique()->values()->all());
 
     const form = document.getElementById('bulkApprovalForm');
     const modalApprove = document.getElementById('modalApprove');
@@ -155,6 +161,54 @@ document.addEventListener('DOMContentLoaded', function(){
         return 'Rp ' + angka.toLocaleString('id-ID');
     }
 
+    function buildStockUrl(barangId){
+        const url = stockUrlTemplate.replace('__ID__', String(barangId));
+        const params = new URLSearchParams();
+
+        if(currentRequestIds.length > 0){
+            params.set('exclude_request_ids', currentRequestIds.join(','));
+        }
+
+        return params.toString() ? `${url}?${params.toString()}` : url;
+    }
+
+    async function refreshRealtimeStock(){
+        const uniqueBarangIds = [...new Set(
+            checkboxes
+                .map(cb => cb.dataset.barangId)
+                .filter(barangId => barangId && barangId !== '')
+        )];
+
+        if(uniqueBarangIds.length === 0){
+            return;
+        }
+
+        await Promise.all(uniqueBarangIds.map(async (barangId) => {
+            try {
+                const response = await fetch(buildStockUrl(barangId), {
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                });
+
+                if(!response.ok){
+                    return;
+                }
+
+                const data = await response.json();
+                checkboxes
+                    .filter(cb => cb.dataset.barangId === String(barangId))
+                    .forEach(cb => {
+                        cb.dataset.stok = String(data.stok_tersedia ?? 0);
+                    });
+            } catch (error) {
+            }
+        }));
+
+        hitungTotal();
+    }
+
     function renderStatusStok(){
         const checkedItems = checkboxes.filter(cb => cb.checked);
         const activeItems = checkedItems.length > 0 ? checkedItems : checkboxes;
@@ -163,9 +217,11 @@ document.addEventListener('DOMContentLoaded', function(){
         checkboxes.forEach(cb => {
             const row = cb.closest('tr');
             const statusEl = row.querySelector('.stock-status');
+            const qtySisaEl = row.querySelector('.qty-sisa-cell');
+            const qtyKurangEl = row.querySelector('.qty-kurang-cell');
             const estimasiEl = row.querySelector('.estimasi-cell');
 
-            if(!statusEl || !estimasiEl) return;
+            if(!statusEl || !qtySisaEl || !qtyKurangEl || !estimasiEl) return;
 
             const isActive = activeItems.includes(cb);
             const qty = parseInt(cb.dataset.qty || 0, 10);
@@ -176,6 +232,8 @@ document.addEventListener('DOMContentLoaded', function(){
             if(!isActive){
                 cb.dataset.estimasi = 0;
                 statusEl.innerHTML = '<span style="color:#94a3b8;">-</span>';
+                qtySisaEl.innerText = '-';
+                qtyKurangEl.innerText = '-';
                 estimasiEl.innerText = 'Rp 0';
                 return;
             }
@@ -196,6 +254,8 @@ document.addEventListener('DOMContentLoaded', function(){
                 statusEl.innerHTML = '<span style="color:green;">Ada stok</span>';
             }
 
+            qtySisaEl.innerText = String(sisaSebelum);
+            qtyKurangEl.innerText = String(kurang);
             estimasiEl.innerText = formatRupiah(estimasi);
         });
     }
@@ -250,6 +310,8 @@ document.addEventListener('DOMContentLoaded', function(){
 
     // initial render
     hitungTotal();
+    refreshRealtimeStock();
+    setInterval(refreshRealtimeStock, 10000);
 
     // =========================
     // MODAL APPROVE (CUSTOM)

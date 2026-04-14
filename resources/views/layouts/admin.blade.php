@@ -470,9 +470,13 @@
 
             {{-- HANYA ADMIN NON PGA --}}
             @if($user->role == 'ADMIN' && $user->userid != 'PGA')
-                <a href="/dashboard">Dashboard</a>
+                <a href="{{ route('dashboard') }}">Dashboard</a>
                 <a href="{{ route('user.index') }}">User</a>
                 <a href="{{ route('request.index') }}">Request</a>
+            @endif
+
+            @if($user->role == 'PGA' || $user->userid == 'PGA')
+                <a href="{{ route('request-claim.index') }}">Permintaan Barang Masuk</a>
             @endif
 
             {{-- ADMIN + PGA --}}

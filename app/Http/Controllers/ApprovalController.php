@@ -3,9 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Mail\SystemNotificationMail;
-use App\Models\DivisionApprover;
 use App\Models\RequestHeader;
-use App\Models\User;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -16,6 +14,24 @@ use Throwable;
 class ApprovalController extends Controller
 {
     private const EDP_NOTIFICATION_EMAIL = 'edp@gto.indogrosir.co.id';
+
+    private function getActiveClaimQtyMap(array $barangIds): array
+    {
+        $ids = collect($barangIds)->map(fn($id) => (int) $id)->filter()->unique()->values();
+        if ($ids->isEmpty()) {
+            return [];
+        }
+
+        return DB::table('request_claim_details')
+            ->join('request_claims', 'request_claims.id', '=', 'request_claim_details.claim_id')
+            ->whereIn('request_claim_details.barang_id', $ids->all())
+            ->whereIn('request_claims.status', [0, 1])
+            ->select('request_claim_details.barang_id', DB::raw('SUM(request_claim_details.qty) as total_qty'))
+            ->groupBy('request_claim_details.barang_id')
+            ->pluck('total_qty', 'request_claim_details.barang_id')
+            ->map(fn($qty) => (int) $qty)
+            ->toArray();
+    }
 
     private function getAvailableStockMap(array $barangIds): array
     {
@@ -44,10 +60,11 @@ class ApprovalController extends Controller
             ->groupBy('barangs.id', 'barangs.stok')
             ->get();
 
+        $activeClaimMap = $this->getActiveClaimQtyMap($ids->all());
         $result = [];
         foreach ($rows as $row) {
             // Jangan clamp ke 0 di sini; dipakai untuk rekonstruksi stok draft centang SM.
-            $result[(int) $row->id] = (int) $row->stok - (int) $row->total_request;
+            $result[(int) $row->id] = (int) $row->stok - (int) $row->total_request - (int) ($activeClaimMap[(int) $row->id] ?? 0);
         }
 
         return $result;
@@ -61,6 +78,36 @@ class ApprovalController extends Controller
         }
 
         return strtoupper(str_replace('/', '-', $base));
+    }
+
+    private function getApprovalPageBaselineStockMap($requests): array
+    {
+        $barangIds = $requests
+            ->flatMap(fn($req) => $req->details->pluck('barang_id'))
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+
+        $availableMap = $this->getAvailableStockMap($barangIds);
+        $qtyByBarangOnPage = [];
+
+        foreach ($requests as $req) {
+            foreach ($req->details as $detail) {
+                $barangId = (int) $detail->barang_id;
+                if ($barangId <= 0) {
+                    continue;
+                }
+
+                $qtyByBarangOnPage[$barangId] = (int) ($qtyByBarangOnPage[$barangId] ?? 0) + (int) $detail->qty;
+            }
+        }
+
+        foreach ($qtyByBarangOnPage as $barangId => $qty) {
+            $availableMap[$barangId] = (int) ($availableMap[$barangId] ?? 0) + (int) $qty;
+        }
+
+        return $availableMap;
     }
 
     private function sendApprovalNotification(RequestHeader $header): void
@@ -78,41 +125,7 @@ class ApprovalController extends Controller
             return;
         }
 
-        $emails = collect();
-
-        if ($targetRole === 'SM') {
-            $emails = User::where('role', 'SM')
-                ->whereNotNull('email')
-                ->pluck('email');
-        } else {
-            $approverUserIds = DivisionApprover::where('division_id', $header->user->division_id)
-                ->where('role', $targetRole)
-                ->whereNotNull('user_id')
-                ->pluck('user_id');
-
-            $emails = User::whereIn('id', $approverUserIds)
-                ->whereNotNull('email')
-                ->pluck('email');
-        }
-
-        $emails = $emails
-            ->map(fn($email) => trim((string) $email))
-            ->filter()
-            ->unique()
-            ->values();
-
-        if ($emails->isEmpty()) {
-            Log::warning('Tidak ada email PIC approval untuk notifikasi approval berjenjang', [
-                'request_id' => $header->id,
-                'target_role' => $targetRole,
-            ]);
-
-            $emails = collect([self::EDP_NOTIFICATION_EMAIL]);
-        }
-
-        $ccEmails = collect([self::EDP_NOTIFICATION_EMAIL])
-            ->reject(fn($email) => $emails->contains($email))
-            ->values();
+        $emails = collect([self::EDP_NOTIFICATION_EMAIL]);
 
         $mailData = [
             'subject' => "Permintaan Approval {$targetRole} - {$header->nomor_dokumen}",
@@ -123,13 +136,7 @@ class ApprovalController extends Controller
         ];
 
         try {
-            $mail = Mail::to($emails->all());
-
-            if ($ccEmails->isNotEmpty()) {
-                $mail->cc($ccEmails->all());
-            }
-
-            $mail->send(new SystemNotificationMail($mailData, 'request'));
+            Mail::to($emails->all())->send(new SystemNotificationMail($mailData, 'request'));
         } catch (Throwable $e) {
             Log::warning('Gagal kirim notifikasi approval berjenjang', [
                 'request_id' => $header->id,
@@ -424,7 +431,42 @@ class ApprovalController extends Controller
             ->where('status', 0)
             ->get();
 
-        return view('approval.bulk', compact('requests'));
+        $availableStockMap = $this->getApprovalPageBaselineStockMap($requests);
+
+        return view('approval.bulk', compact('requests', 'availableStockMap'));
+    }
+
+    public function stock(Request $request, $id)
+    {
+        $barangId = (int) $id;
+        abort_if($barangId <= 0, 404);
+
+        $barang = DB::table('barangs')->where('id', $barangId)->first();
+        abort_if(!$barang, 404);
+
+        $stockMap = $this->getAvailableStockMap([$barangId]);
+
+        $excludeIds = collect(explode(',', (string) $request->query('exclude_request_ids', '')))
+            ->map(fn($value) => (int) trim($value))
+            ->filter(fn($value) => $value > 0)
+            ->unique()
+            ->values();
+
+        if ($excludeIds->isNotEmpty()) {
+            $qtyOnPage = DB::table('request_details')
+                ->where('barang_id', $barangId)
+                ->whereIn('request_id', $excludeIds->all())
+                ->sum('qty');
+
+            $stockMap[$barangId] = (int) ($stockMap[$barangId] ?? 0) + (int) $qtyOnPage;
+        }
+
+        return response()->json([
+            'barang_id' => $barangId,
+            'stok_asli' => (int) $barang->stok,
+            'stok_tersedia' => max(0, (int) ($stockMap[$barangId] ?? 0)),
+            'unit' => $barang->unit,
+        ]);
     }
 
     /**

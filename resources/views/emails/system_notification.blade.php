@@ -102,6 +102,24 @@
                                     <td style="padding:10px 0; font-weight:600;">{{ $ticketEventLabel }}</td>
                                 </tr>
                             </table>
+                        @elseif($type === 'stock')
+                            <h2 style="margin:0 0 10px; font-size:20px; color:#111827;">Update Stok Barang</h2>
+                            <p style="margin:0 0 18px; font-size:14px; line-height:1.6; color:#374151;">
+                                Stok barang yang sebelumnya kosong sudah tersedia kembali dan bisa diajukan untuk pengambilan.
+                            </p>
+
+                            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse; font-size:14px;">
+                                <tr>
+                                    <td style="padding:10px 0; width:180px; color:#6b7280; border-bottom:1px solid #e5e7eb;">Nama Barang</td>
+                                    <td style="padding:10px 0; border-bottom:1px solid #e5e7eb; font-weight:600;">{{ $payload['stock_item_name'] ?? '-' }}</td>
+                                </tr>
+                                <tr>
+                                    <td style="padding:10px 0; color:#6b7280;">Stok Tersedia</td>
+                                    <td style="padding:10px 0; font-weight:600;">
+                                        {{ $payload['stock_available'] ?? 0 }} {{ $payload['stock_unit'] ?? '' }}
+                                    </td>
+                                </tr>
+                            </table>
                         @else
                             <h2 style="margin:0 0 10px; font-size:20px; color:#111827;">Notifikasi Sistem</h2>
                             <p style="margin:0; font-size:14px; line-height:1.6; color:#374151;">
