@@ -54,12 +54,12 @@
         <div style="display:flex; gap:10px;">
 
             @if(in_array(auth()->user()->role, ['SJM', 'PGA']))
-                <a href="/request" class="btn btn-primary">
+                <a href="{{ route('request.index') }}" class="btn btn-primary">
                     Lihat Request
                 </a>
             @endif
             @if(auth()->user()->role == 'USER')
-                <a href="/request/create" class="btn btn-primary">
+                <a href="{{ route('request.create') }}" class="btn btn-primary">
                     + Buat Request
                 </a>
             @endif
@@ -261,7 +261,7 @@
 
             modal.innerHTML = `
                 <div style="position:relative;">
-                    <img src="/storage/${img}" 
+                    <img src="{{ asset('storage') }}/${img}" 
                          style="max-width:80vw; max-height:80vh; border-radius:10px;">
                     <button style="
                         position:absolute;

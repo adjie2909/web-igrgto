@@ -37,7 +37,7 @@
                     Bulk Approval
                 </a>
             @endif
-            <a href="/request/create" class="btn btn-primary">
+            <a href="{{ route('request.create') }}" class="btn btn-primary">
                 + Buat Request
             </a>
         </div>
@@ -281,7 +281,7 @@
 
                     console.log('Reject ID:', id); // debug
 
-                    formReject.action = `/approval/${id}/reject`;
+                    formReject.action = `{{ url('/approval') }}/${id}/reject`;
                     modalReject.classList.add('show');
                 });
             });
@@ -421,7 +421,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
             modal.innerHTML = `
             <div style="position:relative;">
-                <img src="/storage/${img}" 
+                <img src="{{ asset('storage') }}/${img}" 
                 style="max-width:80vw; max-height:80vh; border-radius:10px;">
                 <button style="
                     position:absolute;

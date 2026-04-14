@@ -1,0 +1,17 @@
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Keep sensitive Laravel files out of direct browser access.
+    RewriteRule ^(\.env|artisan|composer\.(json|lock)|package(-lock)?\.json|phpunit\.xml|vite\.config\.js|tailwind\.config\.js|postcss\.config\.js)$ - [F,L]
+    RewriteRule ^(app|bootstrap|config|database|resources|routes|storage|tests|vendor)(/|$) - [F,L]
+
+    # Serve public assets without exposing /public in the URL.
+    RewriteCond %{DOCUMENT_ROOT}/web-igrgto/public/$1 -f [OR]
+    RewriteCond %{DOCUMENT_ROOT}/web-igrgto/public/$1 -d
+    RewriteRule ^(.*)$ public/$1 [L]
+
+    # Send application routes to Laravel's front controller.
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^ public/index.php [L]
+</IfModule>
