@@ -24,7 +24,7 @@
                 <th>User</th>
                 <th>Divisi</th>
                 <th>Status</th>
-                <th style="width:240px;">Aksi</th>
+                <th style="width:90px;">Aksi</th>
             </tr>
         </thead>
 
@@ -54,53 +54,46 @@
                 </td>
 
             {{-- AKSI --}}
-            <td>
-                <div class="aksi-wrapper">
-                    <div class="aksi">
-
-                        {{-- DETAIL --}}
-                        <button class="btn btn-gray"
-                            onclick='openDetailModal(@json($r))'>
+            <td class="aksi">
+                <details class="action-menu">
+                    <summary class="action-menu__trigger">
+                        <span></span><span></span><span></span>
+                    </summary>
+                    <div class="action-menu__panel">
+                        <button class="action-menu__item" type="button" onclick='openDetailModal(@json($r))'>
                             Detail
                         </button>
 
-                        {{-- APPROVE --}}
                         @if($r->status == 0)
-                        <form method="POST" action="{{ route('approval.approve', $r->id) }}">
+                        <form method="POST" action="{{ route('approval.approve', $r->id) }}" class="action-menu__form">
                             @csrf
-                            <button class="btn btn-blue"
-                                onclick="return confirm('Approve request ini?')">
+                            <button type="submit" onclick="return confirm('Approve request ini?')">
                                 Approve
                             </button>
                         </form>
                         @endif
 
-                        {{-- REJECT --}}
                         @if($r->status == 0)
-                        <form method="POST" action="{{ route('approval.reject', $r->id) }}">
+                        <form method="POST" action="{{ route('approval.reject', $r->id) }}" class="action-menu__form action-menu__form--danger">
                             @csrf
                             <input type="hidden" name="reason" value="Ditolak oleh admin">
-                            <button class="btn btn-gray"
-                                onclick="return confirm('Reject request ini?')">
+                            <button type="submit" onclick="return confirm('Reject request ini?')">
                                 Reject
                             </button>
                         </form>
                         @endif
 
-                        {{-- PDF CHECKLIST --}}
                         <a href="{{ route('request.pdf', ['id' => $r->id, 'doc' => strtoupper(str_replace('/', '-', $r->nomor_dokumen ?? 'CHECKLIST-REQUEST'))]) }}" 
-                        class="btn btn-gray" target="_blank">
+                        class="action-menu__item" target="_blank">
                             Checklist
                         </a>
 
-                        {{-- PDF SERAH --}}
                         <a href="{{ route('request.pdf.serah', ['id' => $r->id, 'doc' => strtoupper(str_replace('/', '-', $r->nomor_serah ?? $r->nomor_dokumen ?? 'SERAH-TERIMA'))]) }}" 
-                        class="btn btn-gray" target="_blank">
+                        class="action-menu__item" target="_blank">
                             Serah
                         </a>
-
                     </div>
-                </div>
+                </details>
             </td>
 
             </tr>
@@ -205,11 +198,17 @@ function openDetailModal(data) {
 
     document.getElementById('d_items').innerHTML = itemsHtml;
 
-    document.getElementById('detailModal').style.display = 'flex';
+    document.getElementById('detailModal').classList.add('show');
 }
 
 function closeDetailModal() {
-    document.getElementById('detailModal').style.display = 'none';
+    document.getElementById('detailModal').classList.remove('show');
 }
+
+document.getElementById('detailModal').addEventListener('click', function (e) {
+    if (e.target === this) {
+        closeDetailModal();
+    }
+});
 </script>
 @endsection

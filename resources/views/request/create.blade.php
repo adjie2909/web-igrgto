@@ -1,111 +1,122 @@
-@extends('layouts.app')
+﻿@extends('layouts.app')
 
 @section('content')
+<div class="page-stack canvas-wide">
+    <x-public-hero
+        eyebrow="Request Form"
+        title="Form Request Barang"
+        subtitle="Isi kebutuhan barang dengan lengkap. Jika barang tidak tersedia di master, pilih kategori lain-lain lalu lengkapi keterangannya."
+        :show-meta="false"
+    />
 
-
-    <div class="card" style="max-width:1500px; margin:auto;">
-
-        <h2 style="margin-bottom:20px;">Form Request Barang</h2>
-        <p style="font-size:13px; color:#64748b;">
-            Silakan isi kebutuhan barang dengan lengkap <br>
-            Jika barang tidak tersedia didalam master barang, harap pilih "Lain-lain" dan isi di keterangan
-        </p>
+    <section class="card">
         @if(!empty($hiddenBarangIds))
-            <div style="margin:12px 0 0; padding:10px 12px; background:#fef9c3; border:1px solid #fde68a; border-radius:8px; color:#92400e;">
+            <div class="notice" style="margin-bottom:1rem;">
                 Beberapa barang disembunyikan karena masih ada sisa kuota approved di divisi Anda. Ambil barangnya lewat
-                <a href="{{ route('request-claim.index') }}" style="color:#1d4ed8; text-decoration:underline;">menu Ambil Kuota</a>.
+                <a href="{{ route('request-claim.index') }}">menu Ambil Kuota</a>.
             </div>
         @endif
 
         <form id="form-request" method="POST" action="{{ route('request.store') }}" enctype="multipart/form-data">
             @csrf
 
-            <!-- TANGGAL -->
-            <div style="margin-bottom:20px; max-width:300px; ">
-                <label style="display:block; margin-bottom:5px;">Tanggal Request</label>
-                <input type="date" name="tanggal_request" class="input" value="{{ now()->format('Y-m-d') }}" readonly>
+            <div class="request-builder">
+                <div class="request-builder__header">
+                    <div class="form-group" style="max-width:300px; margin:0;">
+                        <label>Tanggal Request</label>
+                        <input type="date" name="tanggal_request" class="input" value="{{ now()->format('Y-m-d') }}" readonly>
+                    </div>
+
+                    <div>
+                        <div class="request-builder__title">Daftar Barang</div>
+                        <p class="request-builder__hint">Buat setiap barang sebagai satu item. Susunan ini sengaja dibuat lebih ringkas supaya lebih enak dibaca dan diisi.</p>
+                    </div>
+                </div>
+
+                <div id="request-items" class="request-items">
+                    <div class="request-item" data-request-row>
+                        <div class="request-item__top">
+                            <div class="request-item__index">Item 1</div>
+
+                            <div class="request-item__actions">
+                                <details class="action-menu">
+                                    <summary class="action-menu__trigger">
+                                        <span></span><span></span><span></span>
+                                    </summary>
+                                    <div class="action-menu__panel">
+                                        <button type="button" class="action-menu__item action-menu__item--danger btn-hapus">Hapus</button>
+                                    </div>
+                                </details>
+                            </div>
+                        </div>
+
+                        <div class="request-item__grid">
+                            <div class="request-item__field">
+                                <label>Barang</label>
+                                <select name="items[0][barang_id]" class="input barang-select">
+                                    <option value="">-- Pilih Barang --</option>
+                                    @foreach($barangs as $barang)
+                                        <option value="{{ $barang->id }}" data-stok="{{ (int) ($barang->stok_tersedia ?? $barang->stok) }}"
+                                            data-stok-asli="{{ (int) $barang->stok }}"
+                                            data-harga="{{ $barang->harga_estimasi }}" data-unit="{{ $barang->unit }}"
+                                            data-terpakai="{{ (int) ($barang->total_request ?? 0) }}">
+                                            {{ $barang->nama_barang }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+
+                            <div class="request-item__field">
+                                <label>Qty</label>
+                                <input type="number" name="items[0][qty]" class="input qty-input" placeholder="Jumlah">
+                            </div>
+
+                            <div class="request-item__field request-item__field--wide">
+                                <label>Keterangan</label>
+                                <textarea name="items[0][keterangan]" class="input keterangan-textarea" placeholder="Tambahkan catatan kebutuhan, spesifikasi, atau alasan jika barang tidak tersedia di master"></textarea>
+                            </div>
+
+                            <div class="request-item__side">
+                                <div class="request-item__field">
+                                    <label>Estimasi Harga</label>
+                                    <input type="number" name="items[0][harga_manual]" class="input harga-input" placeholder="Isi jika lain-lain" style="display:none;">
+                                </div>
+
+                                <div class="info-stok"></div>
+                            </div>
+
+                            <div class="request-item__field">
+                                <label>Contoh Gambar</label>
+                                <input type="file" name="items[0][image]" class="input">
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
 
-            <!-- TABLE -->
-            <table id="table-barang">
-                <tr>
-                    <th style="width:220px;">Barang</th>
-                    <th style="width:120px;">Qty</th>
-                    <th>Keterangan</th>
-                    <th style="width:120px;">Estimasi Harga</th>
-                    <th style="width:200px;">Contoh Gambar</th>
-                    <th style="width:100px;">Aksi</th>
-                </tr>
-
-                <tr>
-                    <td>
-                        <select name="items[0][barang_id]" class="input barang-select">
-                            <option value="">-- Pilih Barang --</option>
-                            @foreach($barangs as $barang)
-                                <option value="{{ $barang->id }}" data-stok="{{ (int) ($barang->stok_tersedia ?? $barang->stok) }}"
-                                    data-stok-asli="{{ (int) $barang->stok }}"
-                                    data-harga="{{ $barang->harga_estimasi }}" data-unit="{{ $barang->unit }}"
-                                    data-terpakai="{{ (int) ($barang->total_request ?? 0) }}">
-                                    {{ $barang->nama_barang }}
-                                </option>
-                            @endforeach
-                        </select>
-                    </td>
-
-                    <td>
-                        <input type="number" name="items[0][qty]" class="input qty-input">
-                        <div class="info-stok" style="font-size:12px; margin-top:5px;"></div>
-                    </td>
-
-                    <td>
-                        <textarea name="items[0][keterangan]" class="input keterangan-textarea"
-                            placeholder="Isi jika barang tidak tersedia"></textarea>
-                    </td>
-                    <td>
-                        <input type="number" name="items[0][harga_manual]" class="input harga-input"
-                            placeholder="Harga" style="display:none;">
-                    </td>
-                    <td>
-                        <input type="file" name="items[0][image]" class="input">
-                    </td>
-
-                    <td>
-                        <button type="button" class="btn btn-outline btn-hapus">Hapus</button>
-                    </td>
-                </tr>
-            </table>
-
-            <!-- BUTTON -->
-            <div style="margin-top:15px; display:flex; gap:10px;">
-                <button type="button" id="btn-tambah" class="btn btn-outline">+ Tambah Barang</button>
+            <div class="request-builder__footer">
+                <button type="button" id="btn-tambah" class="btn btn-outline">Tambah Barang</button>
                 <button type="submit" class="btn btn-primary">Simpan</button>
-                <a href="{{  route('dashboard') }}" class="btn btn-outline">
-                    Kembali
-                </a>
+                <a href="{{ route('dashboard') }}" class="btn btn-outline">Kembali</a>
             </div>
-
         </form>
-    </div>
+    </section>
 
     <div id="modalValidation" class="modal">
         <div class="modal-content">
             <h3 style="margin-top:0;">Peringatan</h3>
-            <p style="font-size:14px; color:#64748b; margin-bottom:10px;">
-                Harap isi kolom berikut:
-            </p>
+            <p style="font-size:14px; color:#64748b; margin-bottom:10px;">Harap isi kolom berikut:</p>
             <div id="validationList" style="font-size:14px; line-height:1.7;"></div>
             <div class="modal-actions">
                 <button type="button" class="btn btn-primary" id="btnCloseValidation">OK</button>
             </div>
         </div>
     </div>
+</div>
 <script>
 let index = 1;
 const APP_BASE_URL = @json(url('/'));
 
-// ===============================
-// FORMAT RUPIAH
-// ===============================
 function formatRupiah(angka) {
     return 'Rp ' + angka.toLocaleString('id-ID');
 }
@@ -142,15 +153,8 @@ async function refreshStockByBarangId(barangId){
         }
 
         const data = await response.json();
-        updateOptionStockData(
-            data.barang_id,
-            data.stok_tersedia,
-            data.total_request,
-            data.unit,
-            data.stok_asli
-        );
+        updateOptionStockData(data.barang_id, data.stok_tersedia, data.total_request, data.unit, data.stok_asli);
     } catch (e) {
-        // biarkan silent agar UX tetap mulus saat koneksi lambat
     }
 }
 
@@ -162,11 +166,8 @@ async function refreshStockSemuaRow(){
 
     await Promise.all(ids.map(id => refreshStockByBarangId(id)));
 
-    const rows = document.querySelectorAll('#table-barang tr');
-    rows.forEach((row, i) => {
-        if(i === 0) return;
-        hitungEstimasi(row);
-    });
+    const rows = document.querySelectorAll('[data-request-row]');
+    rows.forEach(row => hitungEstimasi(row));
 }
 
 function showValidationModal(fields) {
@@ -184,84 +185,86 @@ function showValidationModal(fields) {
     };
 }
 
-// ===============================
-// TAMBAH ROW
-// ===============================
-document.getElementById('btn-tambah').addEventListener('click', function () {
+function updateRequestItemLabels() {
+    document.querySelectorAll('[data-request-row]').forEach((row, i) => {
+        const badge = row.querySelector('.request-item__index');
+        if (badge) {
+            badge.textContent = `Item ${i + 1}`;
+        }
+    });
+}
 
-    let table = document.getElementById('table-barang');
+document.getElementById('btn-tambah').addEventListener('click', function () {
+    let list = document.getElementById('request-items');
 
     let row = `
-        <tr>
-            <td>
-                <select name="items[${index}][barang_id]" class="input barang-select">
-                    <option value="">-- Pilih Barang --</option>
-                    @foreach($barangs as $barang)
-                        <option 
-                            value="{{ $barang->id }}"
-                            data-stok="{{ (int) ($barang->stok_tersedia ?? $barang->stok) }}"
-                            data-stok-asli="{{ (int) $barang->stok }}"
-                            data-harga="{{ $barang->harga_estimasi }}"
-                            data-unit="{{ $barang->unit }}"
-                            data-terpakai="{{ (int) ($barang->total_request ?? 0) }}"
-                        >
-                            {{ $barang->nama_barang }}
-                        </option>
-                    @endforeach
-                </select>
-            </td>
+        <div class="request-item" data-request-row>
+            <div class="request-item__top">
+                <div class="request-item__index">Item ${index + 1}</div>
 
-            <td>
-                <input type="number" name="items[${index}][qty]" class="input qty-input">
-                <div class="info-stok" style="font-size:12px; margin-top:5px;"></div>
-            </td>
+                <div class="request-item__actions">
+                    <details class="action-menu">
+                        <summary class="action-menu__trigger">
+                            <span></span><span></span><span></span>
+                        </summary>
+                        <div class="action-menu__panel">
+                            <button type="button" class="action-menu__item action-menu__item--danger btn-hapus">Hapus</button>
+                        </div>
+                    </details>
+                </div>
+            </div>
 
-            <td>
-                <textarea 
-                    name="items[${index}][keterangan]" 
-                    class="input"
-                    placeholder="Isi jika barang tidak tersedia"
-                ></textarea>
-            </td>
+            <div class="request-item__grid">
+                <div class="request-item__field">
+                    <label>Barang</label>
+                    <select name="items[${index}][barang_id]" class="input barang-select">
+                        <option value="">-- Pilih Barang --</option>
+                        @foreach($barangs as $barang)
+                            <option value="{{ $barang->id }}" data-stok="{{ (int) ($barang->stok_tersedia ?? $barang->stok) }}" data-stok-asli="{{ (int) $barang->stok }}" data-harga="{{ $barang->harga_estimasi }}" data-unit="{{ $barang->unit }}" data-terpakai="{{ (int) ($barang->total_request ?? 0) }}">{{ $barang->nama_barang }}</option>
+                        @endforeach
+                    </select>
+                </div>
 
-            <td>
-                <input type="number" 
-                    name="items[${index}][harga_manual]" 
-                    class="input harga-input"
-                    placeholder="Harga"
-                    style="display:none;">
-            </td>
+                <div class="request-item__field">
+                    <label>Qty</label>
+                    <input type="number" name="items[${index}][qty]" class="input qty-input" placeholder="Jumlah">
+                </div>
 
-            <td>
-                <input type="file" name="items[${index}][image]" class="input">
-            </td>
+                <div class="request-item__field request-item__field--wide">
+                    <label>Keterangan</label>
+                    <textarea name="items[${index}][keterangan]" class="input" placeholder="Tambahkan catatan kebutuhan, spesifikasi, atau alasan jika barang tidak tersedia di master"></textarea>
+                </div>
 
-            <td>
-                <button type="button" class="btn btn-outline btn-hapus">Hapus</button>
-            </td>
-        </tr>
+                <div class="request-item__side">
+                    <div class="request-item__field">
+                        <label>Estimasi Harga</label>
+                        <input type="number" name="items[${index}][harga_manual]" class="input harga-input" placeholder="Isi jika lain-lain" style="display:none;">
+                    </div>
+
+                    <div class="info-stok"></div>
+                </div>
+
+                <div class="request-item__field">
+                    <label>Contoh Gambar</label>
+                    <input type="file" name="items[${index}][image]" class="input">
+                </div>
+            </div>
+        </div>
     `;
 
-    table.insertAdjacentHTML('beforeend', row);
+    list.insertAdjacentHTML('beforeend', row);
     index++;
+    updateRequestItemLabels();
 });
 
-
-// ===============================
-// HAPUS ROW
-// ===============================
 document.addEventListener('click', function (e) {
     if (e.target.classList.contains('btn-hapus')) {
-        e.target.closest('tr').remove();
+        e.target.closest('[data-request-row]').remove();
+        updateRequestItemLabels();
     }
 });
 
-
-// ===============================
-// HITUNG ESTIMASI (CORE LOGIC)
-// ===============================
 function hitungEstimasi(row){
-
     let select = row.querySelector('.barang-select');
     let qtyInput = row.querySelector('.qty-input');
     let hargaInput = row.querySelector('.harga-input');
@@ -269,28 +272,17 @@ function hitungEstimasi(row){
     if(!select || !qtyInput) return;
 
     let selected = select.options[select.selectedIndex];
-
     let stok = parseInt(selected.dataset.stok || 0);
-    let stokAsli = parseInt(selected.dataset.stokAsli || stok);
-    let terpakai = parseInt(selected.dataset.terpakai || 0);
     let hargaDefault = parseInt(selected.dataset.harga || 0);
     let unit = selected.dataset.unit || '';
-
     let hargaManual = parseInt(hargaInput.value || 0);
     let harga = hargaManual > 0 ? hargaManual : hargaDefault;
-
     let qty = parseInt(qtyInput.value || 0);
-
     let kurang = Math.max(0, qty - stok);
     let estimasi = kurang * harga;
-
     let info = row.querySelector('.info-stok');
 
-    let html = `
-        {{-- <span>Stok master: <b>${stokAsli} ${unit}</b></span><br> --}}
-       {{-- <span>Terpakai request berjalan: <b>${terpakai} ${unit}</b></span><br>  --}}
-        <span>Sisa tersedia: <b>${stok} ${unit}</b></span><br>
-    `;
+    let html = `<span>Sisa tersedia: <b>${stok} ${unit}</b></span><br>`;
 
     if(kurang > 0){
         html += `<span style="color:red;">Kekurangan: ${kurang}</span><br>`;
@@ -302,20 +294,12 @@ function hitungEstimasi(row){
     info.innerHTML = html;
 }
 
-
-// ===============================
-// EVENT: PILIH BARANG
-// ===============================
 document.addEventListener('change', function(e){
-
     if(e.target.classList.contains('barang-select')){
-
-        let row = e.target.closest('tr');
+        let row = e.target.closest('[data-request-row]');
         let hargaInput = row.querySelector('.harga-input');
-
         let selectedText = e.target.options[e.target.selectedIndex].text.toLowerCase();
 
-        // 🔥 tampilkan harga manual jika lain-lain
         if(selectedText.includes('lain')){
             hargaInput.style.display = 'block';
             hargaInput.placeholder = 'Wajib isi harga';
@@ -331,39 +315,15 @@ document.addEventListener('change', function(e){
             hitungEstimasi(row);
         }
     }
-
 });
 
-
-// ===============================
-// EVENT: QTY INPUT
-// ===============================
 document.addEventListener('input', function(e){
-
-    if(e.target.classList.contains('qty-input')){
-        let row = e.target.closest('tr');
+    if(e.target.classList.contains('qty-input') || e.target.classList.contains('harga-input')){
+        let row = e.target.closest('[data-request-row]');
         hitungEstimasi(row);
     }
-
 });
 
-
-// ===============================
-// EVENT: HARGA MANUAL INPUT
-// ===============================
-document.addEventListener('input', function(e){
-
-    if(e.target.classList.contains('harga-input')){
-        let row = e.target.closest('tr');
-        hitungEstimasi(row);
-    }
-
-});
-
-
-// ===============================
-// VALIDASI SUBMIT
-// ===============================
 document.getElementById('form-request').addEventListener('submit', function(e){
     let firstInvalid = null;
     let pesanKosong = [];
@@ -379,7 +339,6 @@ document.getElementById('form-request').addEventListener('submit', function(e){
         field.style.border = '';
     }
 
-    // validasi tanggal
     let tanggal = document.querySelector('input[name="tanggal_request"]');
     bersihkanError(tanggal);
     if(!tanggal.value){
@@ -387,11 +346,10 @@ document.getElementById('form-request').addEventListener('submit', function(e){
         pesanKosong.push('Tanggal Request');
     }
 
-    let rows = document.querySelectorAll('#table-barang tr');
+    let rows = document.querySelectorAll('[data-request-row]');
 
-    for(let i = 1; i < rows.length; i++){
+    for(let i = 0; i < rows.length; i++){
         let row = rows[i];
-
         let select = row.querySelector('.barang-select');
         let qty = row.querySelector('.qty-input');
         let harga = row.querySelector('.harga-input');
@@ -408,22 +366,22 @@ document.getElementById('form-request').addEventListener('submit', function(e){
 
         let selectedOption = select.options[select.selectedIndex];
         let selectedText = selectedOption ? selectedOption.text.toLowerCase() : '';
+        let nomorBaris = i + 1;
 
         if(!select.value){
             tandaiKosong(select);
-            pesanKosong.push(`Baris ${i}: Barang`);
+            pesanKosong.push(`Baris ${nomorBaris}: Barang`);
         }
 
         if(!qty.value || parseInt(qty.value) <= 0){
             tandaiKosong(qty);
-            pesanKosong.push(`Baris ${i}: Qty`);
+            pesanKosong.push(`Baris ${nomorBaris}: Qty`);
         }
 
-        // Estimasi harga manual hanya wajib jika pilih "lain-lain"
         if(selectedText.includes('lain')){
             if(!harga.value || parseInt(harga.value) <= 0){
                 tandaiKosong(harga);
-                pesanKosong.push(`Baris ${i}: Estimasi Harga`);
+                pesanKosong.push(`Baris ${nomorBaris}: Estimasi Harga`);
             }
         }
     }
@@ -438,7 +396,6 @@ document.getElementById('form-request').addEventListener('submit', function(e){
     }
 });
 
-// hapus tanda merah ketika user mulai mengisi ulang
 document.addEventListener('input', function(e){
     if(e.target.classList.contains('input')){
         e.target.style.border = '';
@@ -457,6 +414,7 @@ document.getElementById('modalValidation').addEventListener('click', function(e)
     }
 });
 
+updateRequestItemLabels();
 refreshStockSemuaRow();
 setInterval(refreshStockSemuaRow, 10000);
 </script>

@@ -1,11 +1,14 @@
 @extends('layouts.app')
 
 @section('content')
+    <div class="page-stack">
+    <x-public-hero
+        eyebrow="Warehouse Flow"
+        title="Pengambilan Barang"
+        subtitle="Gunakan sisa kuota approved milik divisi. Permintaan ini langsung masuk ke PGA."
+    />
+
     <div class="card">
-        <h2>Pengambilan Barang</h2>
-        <p style="font-size:14px; color:#64748b;">
-            Gunakan sisa kuota approved milik divisi. Permintaan ini langsung masuk ke PGA.
-        </p>
 
         @if(session('error'))
             <div style="background:#fee2e2; color:#991b1b; padding:10px 12px; border-radius:6px; margin:12px 0;">
@@ -69,7 +72,7 @@
         @endif
     </div>
 
-    <div class="card" style="margin-top:20px;">
+    <div class="card">
         <h3>Riwayat Permintaan Dari Kuota</h3>
 
         <table>
@@ -118,5 +121,6 @@
         <div style="margin-top:15px;">
             {{ $claims->links() }}
         </div>
+    </div>
     </div>
 @endsection

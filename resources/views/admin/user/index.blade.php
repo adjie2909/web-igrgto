@@ -60,7 +60,7 @@
                 <th>UserID</th>
                 <th>Divisi</th>
                 <th>Role</th>
-                <th style="width:220px;">Aksi</th>
+                <th style="width:90px;">Aksi</th>
             </tr>
         </thead>
 
@@ -78,26 +78,32 @@
                 </td>
 
                 <td class="aksi">
-                    <button class="btn btn-blue"
-                        onclick="openEditModal(
-                            '{{ $u->id }}',
-                            '{{ $u->name }}',
-                            '{{ $u->userid }}',
-                            '{{ $u->email }}',
-                            '{{ $u->division_id }}',
-                            '{{ $u->role }}'
-                        )">
-                        Edit
-                    </button>
+                    <details class="action-menu">
+                        <summary class="action-menu__trigger">
+                            <span></span><span></span><span></span>
+                        </summary>
+                        <div class="action-menu__panel">
+                            <button class="action-menu__item" type="button"
+                                onclick="openEditModal(
+                                    '{{ $u->id }}',
+                                    '{{ $u->name }}',
+                                    '{{ $u->userid }}',
+                                    '{{ $u->email }}',
+                                    '{{ $u->division_id }}',
+                                    '{{ $u->role }}'
+                                )">
+                                Edit
+                            </button>
 
-                    <form action="{{ route('user.destroy', $u->id) }}" method="POST">
-                        @csrf
-                        @method('DELETE')
-                        <button class="btn btn-red"
-                            onclick="return confirm('Yakin hapus user?')">
-                            Hapus
-                        </button>
-                    </form>
+                            <form action="{{ route('user.destroy', $u->id) }}" method="POST" class="action-menu__form action-menu__form--danger">
+                                @csrf
+                                @method('DELETE')
+                                <button type="submit" onclick="return confirm('Yakin hapus user?')">
+                                    Hapus
+                                </button>
+                            </form>
+                        </div>
+                    </details>
                 </td>
             </tr>
         @endforeach
@@ -218,14 +224,14 @@ function openEditModal(id, name, userid, email, division, role) {
     document.getElementById('edit_password').value = '';
     document.getElementById('edit_password_confirm').value = '';
 
-    document.getElementById('editModal').style.display = 'flex';
+    document.getElementById('editModal').classList.add('show');
 }
 
 // ==========================
 // CLOSE MODAL
 // ==========================
 function closeModal() {
-    document.getElementById('editModal').style.display = 'none';
+    document.getElementById('editModal').classList.remove('show');
 }
 
 
@@ -242,6 +248,12 @@ document.getElementById('editForm').addEventListener('submit', function(e){
         e.preventDefault();
     }
 
+});
+
+document.getElementById('editModal').addEventListener('click', function (e) {
+    if (e.target === this) {
+        closeModal();
+    }
 });
 
 

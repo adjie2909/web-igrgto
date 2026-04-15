@@ -1,9 +1,15 @@
 @extends('layouts.app')
 
 @section('content')
+    <div class="page-stack">
+    <x-public-hero
+        eyebrow="Warehouse Flow"
+        title="Pengambilan Barang PGA"
+        subtitle="Permintaan barang dari kuota approved. PGA memproses lalu menyelesaikan serah terima."
+    />
+
     <div class="card">
-        <h2>Pengambilan Barang PGA</h2>
-        <form method="GET" action="{{ route('request-claim.index') }}" style="margin:12px 0 16px; display:flex; gap:10px; align-items:end; flex-wrap:wrap;">
+        <form method="GET" action="{{ route('request-claim.index') }}" style="margin:0 0 16px; display:flex; gap:10px; align-items:end; flex-wrap:wrap;">
             <div>
                 <label style="display:block; font-size:13px; color:#64748b; margin-bottom:4px;">Dari Tanggal</label>
                 <input type="date" name="date_from" class="input" value="{{ $dateFrom ?? '' }}" required>
@@ -33,7 +39,7 @@
                     <th>Tanggal Pengajuan</th>
                     <th>Barang</th>
                     <th>Status</th>
-                    <th>Aksi</th>
+                    <th style="width:90px;">Aksi</th>
                 </tr>
             </thead>
             <tbody>
@@ -59,30 +65,35 @@
                                 <span class="status-reject">Ditolak</span>
                             @endif
                         </td>
-                        <td>
-                            <div style="display:flex; gap:6px; flex-wrap:wrap;">
-                                @if($claim->status == 0)
-                                    <form method="POST" action="{{ route('request-claim.process', $claim->id) }}">
-                                        @csrf
-                                        <button class="btn btn-primary">Proses</button>
-                                    </form>
-                                @endif
+                        <td class="aksi">
+                            <details class="action-menu">
+                                <summary class="action-menu__trigger">
+                                    <span></span><span></span><span></span>
+                                </summary>
+                                <div class="action-menu__panel">
+                                    @if($claim->status == 0)
+                                        <form method="POST" action="{{ route('request-claim.process', $claim->id) }}" class="action-menu__form">
+                                            @csrf
+                                            <button type="submit">Proses</button>
+                                        </form>
+                                    @endif
 
-                                @if($claim->status == 1)
-                                    <form method="POST" action="{{ route('request-claim.complete', $claim->id) }}" class="js-claim-complete-form">
-                                        @csrf
-                                        <button class="btn btn-blue">Serah Terima</button>
-                                    </form>
-                                @endif
+                                    @if($claim->status == 1)
+                                        <form method="POST" action="{{ route('request-claim.complete', $claim->id) }}" class="action-menu__form js-claim-complete-form">
+                                            @csrf
+                                            <button type="submit">Serah Terima</button>
+                                        </form>
+                                    @endif
 
-                                @if(in_array($claim->status, [0, 1]))
-                                    <form method="POST" action="{{ route('request-claim.reject', $claim->id) }}" style="display:flex; gap:6px;">
-                                        @csrf
-                                        <input type="text" name="reason" class="input" placeholder="Alasan" style="width:140px;">
-                                        <button class="btn btn-red">Tolak</button>
-                                    </form>
-                                @endif
-                            </div>
+                                    @if(in_array($claim->status, [0, 1]))
+                                        <form method="POST" action="{{ route('request-claim.reject', $claim->id) }}" class="action-menu__form action-menu__form--danger js-claim-reject-form">
+                                            @csrf
+                                            <input type="hidden" name="reason" value="">
+                                            <button type="button" class="js-claim-reject-button">Tolak</button>
+                                        </form>
+                                    @endif
+                                </div>
+                            </details>
                         </td>
                     </tr>
                 @empty
@@ -103,6 +114,7 @@
             {{ $claims->links() }}
         </div>
     </div>
+    </div>
 
     @if(session('print_claim_id'))
     <script>
@@ -118,6 +130,7 @@
     <script>
     document.addEventListener('DOMContentLoaded', function () {
         const completeForms = document.querySelectorAll('.js-claim-complete-form');
+        const rejectForms = document.querySelectorAll('.js-claim-reject-form');
 
         completeForms.forEach(form => {
             form.addEventListener('submit', async function (event) {
@@ -155,6 +168,32 @@
                     if (submitButton) submitButton.disabled = false;
                     alert(error.message || 'Gagal proses serah terima');
                 }
+            });
+        });
+
+        rejectForms.forEach(form => {
+            const button = form.querySelector('.js-claim-reject-button');
+            const reasonInput = form.querySelector('input[name="reason"]');
+
+            if (!button || !reasonInput) {
+                return;
+            }
+
+            button.addEventListener('click', function () {
+                const reason = window.prompt('Masukkan alasan penolakan:');
+
+                if (reason === null) {
+                    return;
+                }
+
+                const trimmedReason = reason.trim();
+                if (!trimmedReason) {
+                    alert('Alasan penolakan wajib diisi');
+                    return;
+                }
+
+                reasonInput.value = trimmedReason;
+                form.submit();
             });
         });
     });
