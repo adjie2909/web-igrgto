@@ -3,9 +3,9 @@
 @section('content')
     <div class="page-stack">
     <x-public-hero
-        eyebrow="Warehouse Flow"
-        title="Pengambilan Barang"
-        subtitle="Gunakan sisa kuota approved milik divisi. Permintaan ini langsung masuk ke PGA."
+        {{--eyebrow="Warehouse Flow"--}}
+        title="Pengambilan Barang GA"
+        {{--subtitle="Gunakan sisa kuota approved milik divisi. Permintaan ini langsung masuk ke PGA."--}}
     />
 
     <div class="card">
@@ -18,7 +18,7 @@
 
         @if($quotaRows->isEmpty())
             <div style="padding:16px; background:#f8fafc; border:1px solid #e5e7eb; border-radius:8px; margin-top:15px;">
-                Tidak ada sisa kuota barang. Jika butuh barang baru, silakan buat request awal.
+                Tidak ada sisa pengambilan barang. Jika butuh barang baru, silakan buat request awal.
             </div>
             <div style="margin-top:15px;">
                 <a href="{{ route('request.create') }}" class="btn btn-primary">Request Awal Baru</a>

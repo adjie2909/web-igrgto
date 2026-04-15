@@ -3,9 +3,9 @@
 @section('content')
 <div class="page-stack">
     <x-public-hero
-        eyebrow="Support Center"
+        {{--eyebrow="Support Center"--}}
         title="Dashboard Ticketing Complain"
-        subtitle="Pantau laporan terbaru, progres penanganan, dan akses cepat untuk membuat ticket baru."
+        {{--subtitle="Pantau laporan terbaru, progres penanganan, dan akses cepat untuk membuat ticket baru."--}}
     />
 
     <section class="stats-grid">

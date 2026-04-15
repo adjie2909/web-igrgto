@@ -51,12 +51,12 @@
                         <div class="nav-user">
                             @auth
                                 <div class="nav-user__meta">
-                                    <strong>{{ auth()->user()->name }}</strong>
-                                    <div class="nav-user__subline">
+                                    <strong>{{ auth()->user()->userid }}</strong>
+                                    <!-- <div class="nav-user__subline">
                                         <span>{{ auth()->user()->userid }}</span>
                                         <span class="nav-user__separator" aria-hidden="true"></span>
                                         <span>{{ auth()->user()->role }}</span>
-                                    </div>
+                                    </div> -->
                                 </div>
 
                                 <form method="POST" action="{{ route('logout') }}">

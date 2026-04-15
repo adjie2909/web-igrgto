@@ -3,9 +3,9 @@
 @section('content')
 <div class="page-stack">
     <x-public-hero
-        eyebrow="Workspace Overview"
+        {{--eyebrow="Workspace Overview"--}}
         title="Permintaan Barang GA"
-        subtitle="Ringkasan permintaan terbaru, status operasional, dan akses cepat ke alur kerja utama."
+        {{--subtitle="Ringkasan permintaan terbaru, status operasional, dan akses cepat ke alur kerja utama."--}}
     >
         <x-slot:aside>
             <div class="meta-grid dashboard-hero-meta">
