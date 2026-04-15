@@ -7,6 +7,7 @@ use App\Models\RequestClaim;
 use App\Models\RequestClaimDetail;
 use App\Models\RequestDetail;
 use App\Models\RequestHeader;
+use App\Services\StockAvailabilityNotifier;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -307,6 +308,11 @@ class RequestClaimController extends Controller
             if ($available <= 0) {
                 return back()->with('error', "Stok {$detail->barang->nama_barang} sedang kosong, tidak bisa melakukan pengambilan.");
             }
+
+            if ((int) $item['qty'] > $available) {
+                $unit = $detail->barang->unit ?? '';
+                return back()->with('error', "Qty {$detail->barang->nama_barang} melebihi stok tersedia. Tersedia {$available} {$unit}, diminta {$item['qty']} {$unit}.");
+            }
         }
 
         DB::transaction(function () use ($items, $details, $user, $requestIds) {
@@ -433,11 +439,21 @@ class RequestClaimController extends Controller
             'reason' => ['required', 'string'],
         ]);
 
-        $claim = RequestClaim::findOrFail($id);
+        $stockNotifier = app(StockAvailabilityNotifier::class);
+        $claim = RequestClaim::with('details')->findOrFail($id);
+        $barangIds = $claim->details
+            ->pluck('barang_id')
+            ->map(fn($barangId) => (int) $barangId)
+            ->filter(fn($barangId) => $barangId > 0)
+            ->unique()
+            ->values()
+            ->all();
 
         if (!in_array((int) $claim->status, [0, 1], true)) {
             return back()->with('error', 'Permintaan barang tidak bisa ditolak');
         }
+
+        $beforeMap = $stockNotifier->getAvailableStockMap($barangIds);
 
         $claim->update([
             'status' => 3,
@@ -445,6 +461,9 @@ class RequestClaimController extends Controller
             'rejected_by' => auth()->id(),
             'rejected_at' => now(),
         ]);
+
+        $afterMap = $stockNotifier->getAvailableStockMap($barangIds);
+        $stockNotifier->notifyRecoveredItems($beforeMap, $afterMap);
 
         return back()->with('success', 'Permintaan barang ditolak');
     }

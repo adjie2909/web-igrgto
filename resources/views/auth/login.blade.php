@@ -2,6 +2,44 @@
 
 @section('content')
 
+<style>
+    .password-field {
+        position: relative;
+    }
+
+    .password-field .password-input {
+        padding-right: 72px;
+    }
+
+    .password-toggle {
+        position: absolute;
+        right: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        border: 0;
+        background: transparent;
+        padding: 0;
+        color: #64748b;
+        font-size: 13px;
+        cursor: pointer;
+        line-height: 1;
+    }
+
+    .password-toggle:hover {
+        color: #334155;
+    }
+
+    .password-toggle:focus {
+        outline: none;
+        color: #2563eb;
+    }
+
+    .password-input::-ms-reveal,
+    .password-input::-ms-clear {
+        display: none;
+    }
+</style>
+
 <div style="display:flex; justify-content:center; align-items:center; min-height:100vh;">
 
     <div class="card" style="width:360px;">
@@ -49,14 +87,13 @@
             <!-- PASSWORD -->
             <div class="form-group">
                 <label>Password</label>
-                <div style="position:relative;">
-                    <input type="password" name="password" id="password" class="input">
+                <div class="password-field">
+                    <input type="password" name="password" id="password" class="input password-input">
 
-                    <span onclick="togglePassword('password', this)"
-                        style="position:absolute; right:10px; top:50%; transform:translateY(-50%);
-                                cursor:pointer; font-size:13px; color:#64748b;">
+                    <button type="button" onclick="togglePassword('password', this)"
+                        class="password-toggle" aria-label="Tampilkan password" aria-pressed="false">
                         Show
-                    </span>
+                    </button>
                 </div>
             </div>
 
@@ -111,9 +148,13 @@ function togglePassword(id, el) {
     if (input.type === "password") {
         input.type = "text";
         el.innerText = "Hide";
+        el.setAttribute('aria-label', 'Sembunyikan password');
+        el.setAttribute('aria-pressed', 'true');
     } else {
         input.type = "password";
         el.innerText = "Show";
+        el.setAttribute('aria-label', 'Tampilkan password');
+        el.setAttribute('aria-pressed', 'false');
     }
 }
 </script>

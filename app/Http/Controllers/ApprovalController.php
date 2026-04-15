@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Mail\SystemNotificationMail;
 use App\Models\RequestHeader;
+use App\Services\StockAvailabilityNotifier;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -385,6 +386,14 @@ class ApprovalController extends Controller
     {
         $req = RequestHeader::findOrFail($id);
         $user = auth()->user();
+        $stockNotifier = app(StockAvailabilityNotifier::class);
+        $barangIds = $req->details()
+            ->pluck('barang_id')
+            ->map(fn($barangId) => (int) $barangId)
+            ->filter(fn($barangId) => $barangId > 0)
+            ->unique()
+            ->values()
+            ->all();
 
         // Validasi level approval
         if (
@@ -400,6 +409,8 @@ class ApprovalController extends Controller
             return back()->with('error', 'Request sudah diproses');
         }
 
+        $beforeMap = $stockNotifier->getAvailableStockMap($barangIds);
+
         // Simpan data reject
         $req->status = 4;
         $req->nomor_serah = null;
@@ -407,6 +418,9 @@ class ApprovalController extends Controller
         $req->rejected_by = $user->id;
         $req->rejected_at = now();
         $req->save();
+
+        $afterMap = $stockNotifier->getAvailableStockMap($barangIds);
+        $stockNotifier->notifyRecoveredItems($beforeMap, $afterMap);
 
         return back()->with('success', 'Permintaan barang ditolak');
     }
@@ -486,6 +500,7 @@ class ApprovalController extends Controller
         $user = auth()->user();
         $requestsToNotify = collect();
         $smApprovedIds = [];
+        $stockNotifier = app(StockAvailabilityNotifier::class);
 
         $ids = collect($request->ids ?? [])
             ->map(fn($id) => (int) $id)
@@ -540,6 +555,22 @@ class ApprovalController extends Controller
             $this->sendFinalApprovalPdfNotification($smApprovedIds);
         }
 
+        $autoRejectedHeaders = RequestHeader::with('details')
+            ->where('status', 0)
+            ->where('current_approval_level', $level)
+            ->whereNotIn('id', $ids)
+            ->get();
+
+        $autoRejectedBarangIds = $autoRejectedHeaders
+            ->flatMap(fn($header) => $header->details->pluck('barang_id'))
+            ->map(fn($barangId) => (int) $barangId)
+            ->filter(fn($barangId) => $barangId > 0)
+            ->unique()
+            ->values()
+            ->all();
+
+        $beforeAutoRejectMap = $stockNotifier->getAvailableStockMap($autoRejectedBarangIds);
+
         // Auto reject untuk data yang tidak dipilih
         RequestHeader::where('status', 0)
             ->where('current_approval_level', $level)
@@ -550,6 +581,10 @@ class ApprovalController extends Controller
                 'rejected_at' => now(),
                 'reject_reason' => 'Auto reject (bulk approval)'
             ]);
+
+        $afterAutoRejectMap = $stockNotifier->getAvailableStockMap($autoRejectedBarangIds);
+        $stockNotifier->notifyRecoveredItems($beforeAutoRejectMap, $afterAutoRejectMap);
+
         $role = $user->role;
 
         if ($role === 'SM' && !empty($ids)) {
