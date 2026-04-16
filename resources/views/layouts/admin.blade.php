@@ -14,7 +14,6 @@
 <body>
     @php
         $user = auth()->user();
-        $isAdminDashboard = request()->routeIs('dashboard');
         $isUserPage = request()->routeIs('user.*');
         $isRequestPage = request()->routeIs('request.*');
         $isClaimPage = request()->routeIs('request-claim.*');
@@ -29,8 +28,12 @@
             </div>
 
             <nav class="admin-menu">
+                <form method="POST" action="{{ route('logout') }}">
+                    @csrf
+                    <button type="submit" class="admin-menu__link">Logout</button>
+                </form>
+
                 @if($user->role == 'ADMIN' && $user->userid != 'PGA')
-                    <a href="{{ route('dashboard') }}" class="{{ $isAdminDashboard ? 'is-active' : '' }}">Dashboard</a>
                     <a href="{{ route('user.index') }}" class="{{ $isUserPage ? 'is-active' : '' }}">User</a>
                     <a href="{{ route('request.index') }}" class="{{ $isRequestPage ? 'is-active' : '' }}">Request</a>
                 @endif
@@ -53,13 +56,6 @@
                         <span>{{ $user->role }}</span>
                     </div>
                 </div>
-
-                <form method="POST" action="{{ route('logout') }}">
-                    @csrf
-                    <button class="btn btn-outline" type="submit" style="width:100%; background:rgba(255,255,255,0.08); border-color:rgba(255,255,255,0.08); color:#fff;">
-                        Logout
-                    </button>
-                </form>
             </div>
         </aside>
 

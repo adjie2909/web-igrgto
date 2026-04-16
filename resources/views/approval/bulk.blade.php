@@ -328,50 +328,14 @@ document.addEventListener('DOMContentLoaded', function(){
         });
     }
 
-    if(btnConfirmApprove){
-        btnConfirmApprove.addEventListener('click', async function(){
-            modalApprove.classList.remove('show');
+			if(btnConfirmApprove){
+		        btnConfirmApprove.addEventListener('click', function(){
+		            modalApprove.classList.remove('show');
 
-            if (userRole !== 'SM') {
-                form.submit();
-                return;
-            }
-
-            const printWindow = window.open('about:blank', '_blank');
-            btnConfirmApprove.disabled = true;
-
-            try {
-                const response = await fetch(form.action, {
-                    method: 'POST',
-                    body: new FormData(form),
-                    headers: {
-                        'Accept': 'application/json',
-                        'X-Requested-With': 'XMLHttpRequest',
-                    },
-                });
-
-                const data = await response.json();
-                if (!response.ok) {
-                    throw new Error(data.message || 'Gagal approve bulk');
-                }
-
-                if (data.pdf_url && printWindow) {
-                    printWindow.location.href = data.pdf_url;
-                } else if (printWindow) {
-                    printWindow.close();
-                }
-
-                window.location.href = "{{ route('approval.bulk') }}";
-            } catch (error) {
-                if (printWindow) {
-                    printWindow.close();
-                }
-
-                btnConfirmApprove.disabled = false;
-                alert(error.message || 'Gagal approve bulk');
-            }
-        });
-    }
+		            btnConfirmApprove.disabled = true;
+		            form.submit();
+		        });
+		    }
 
     if(modalApprove){
         modalApprove.addEventListener('click', function(e){
@@ -448,14 +412,4 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 </script>
 
-@if(session('print_approval_ids'))
-<script>
-window.addEventListener('load', function () {
-    window.open(
-        "{{ route('approval.pdf.sm', ['ids' => session('print_approval_ids'), 'doc' => session('print_approval_doc')]) }}",
-        '_blank'
-    );
-});
-</script>
-@endif
 @endsection

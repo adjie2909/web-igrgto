@@ -33,6 +33,7 @@
                 <th>Nama Barang</th>
                 <th>Fraction</th>
                 <th>Unit</th>
+                <th>Stok Saat Ini</th>
                 <th width="90">Aksi</th>
             </tr>
         </thead>
@@ -44,6 +45,7 @@
                 <td>{{ $b->nama_barang }}</td>
                 <td>{{ $b->fraction }}</td>
                 <td>{{ $b->unit }}</td>
+                <td>{{ (int) ($b->stok_saat_ini ?? $b->stok ?? 0) }}</td>
                 <td>
                     <details class="action-menu">
                         <summary class="action-menu__trigger">
@@ -142,6 +144,7 @@
 <script>
 const editBarangModal = document.getElementById('editBarangModal');
 const editBarangForm = document.getElementById('editBarangForm');
+const barangUpdateUrlTemplate = @json(route('barang.update', ['barang' => '__ID__']));
 
 function openBarangModal(data) {
     document.getElementById('edit_barang_id').value = data.id ?? '';
@@ -152,7 +155,7 @@ function openBarangModal(data) {
     document.getElementById('edit_stok').value = data.stok ?? '';
     document.getElementById('edit_harga_estimasi').value = data.harga ?? '';
 
-    editBarangForm.action = `/barang/${data.id}`;
+    editBarangForm.action = barangUpdateUrlTemplate.replace('__ID__', String(data.id ?? ''));
     editBarangModal.classList.add('show');
 }
 

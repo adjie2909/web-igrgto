@@ -119,6 +119,6 @@
         </tr>
     </table>
 
-    <div class="small-note">Dokumen ini dicetak otomatis saat approval final oleh SM.</div>
+    <div class="small-note">Dokumen ini dibuat otomatis setelah approval final oleh SM dan dikirim melalui email ke PGA.</div>
 </body>
 </html>

@@ -282,7 +282,7 @@ class ApprovalController extends Controller
     {
         $request = RequestHeader::findOrFail($id);
         $user = auth()->user();
-        $shouldPrintPdf = false;
+        $shouldSendFinalApprovalPdf = false;
 
         // Ambil daftar divisi yang boleh di-approve oleh user
         $allowedDivisions = \App\Models\DivisionApprover::where('user_id', $user->id)
@@ -320,7 +320,7 @@ class ApprovalController extends Controller
             $request->approved_by_level3 = $user->id;
             $request->approved_at_level3 = now();
             $request->status = 1; // Approved
-            $shouldPrintPdf = true;
+            $shouldSendFinalApprovalPdf = true;
         } else {
             if ($httpRequest->expectsJson()) {
                 return response()->json([
@@ -333,31 +333,20 @@ class ApprovalController extends Controller
 
         $request->save();
 
-        if (!$shouldPrintPdf) {
+        if (!$shouldSendFinalApprovalPdf) {
             $this->sendApprovalNotification($request);
         }
 
-        if ($shouldPrintPdf) {
+        if ($shouldSendFinalApprovalPdf) {
             $this->sendFinalApprovalPdfNotification([(int) $request->id]);
-
-            $doc = $this->formatDocForUrl($request->nomor_dokumen, 'APPROVAL-SM');
-            $pdfUrl = route('approval.pdf.sm', [
-                'ids' => (string) $request->id,
-                'doc' => $doc,
-            ]);
 
             if ($httpRequest->expectsJson()) {
                 return response()->json([
                     'message' => 'Permintaan barang berhasil diapprove',
-                    'pdf_url' => $pdfUrl,
                 ]);
             }
 
-            return back()->with([
-                'success' => 'Permintaan barang berhasil diapprove',
-                'print_approval_ids' => (string) $request->id,
-                'print_approval_doc' => $doc,
-            ]);
+            return back()->with('success', 'Permintaan barang berhasil diapprove');
         }
 
         if ($httpRequest->expectsJson()) {
@@ -586,27 +575,6 @@ class ApprovalController extends Controller
         $stockNotifier->notifyRecoveredItems($beforeAutoRejectMap, $afterAutoRejectMap);
 
         $role = $user->role;
-
-        if ($role === 'SM' && !empty($ids)) {
-            $doc = 'APPROVAL-SM-' . implode('-', $ids);
-            $pdfUrl = route('approval.pdf.sm', [
-                'ids' => implode(',', $ids),
-                'doc' => $doc,
-            ]);
-
-            if ($request->expectsJson()) {
-                return response()->json([
-                    'message' => "Permintaan berhasil diapprove oleh $role",
-                    'pdf_url' => $pdfUrl,
-                ]);
-            }
-
-            return back()->with([
-                'success' => "Permintaan berhasil diapprove oleh $role",
-                'print_approval_ids' => implode(',', $ids),
-                'print_approval_doc' => $doc,
-            ]);
-        }
 
         if ($request->expectsJson()) {
             return response()->json([

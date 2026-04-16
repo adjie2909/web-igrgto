@@ -20,6 +20,15 @@ class BarangController extends Controller
             ->latest()
             ->paginate(10);
 
+        $stockNotifier = app(StockAvailabilityNotifier::class);
+        $stokSaatIniMap = $stockNotifier->getAvailableStockMap($barangs->pluck('id')->all());
+
+        $barangs->getCollection()->transform(function ($barang) use ($stokSaatIniMap) {
+            $barangId = (int) $barang->id;
+            $barang->stok_saat_ini = max(0, (int) ($stokSaatIniMap[$barangId] ?? $barang->stok ?? 0));
+            return $barang;
+        });
+
         return view('admin.barang.index', compact('barangs'));
     }
 

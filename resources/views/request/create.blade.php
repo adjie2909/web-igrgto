@@ -17,6 +17,12 @@
             </div>
         @endif
 
+        @if(!empty($blockedBarangIds))
+            <div class="notice" style="margin-bottom:1rem; border-color: rgba(30, 64, 175, 0.18); background:#eff6ff; color:#1e3a8a;">
+                Beberapa barang tidak bisa dipilih karena masih ada request berjalan di divisi Anda (menunggu approval).
+            </div>
+        @endif
+
         <form id="form-request" method="POST" action="{{ route('request.store') }}" enctype="multipart/form-data">
             @csrf
 
@@ -56,11 +62,13 @@
                                 <select name="items[0][barang_id]" class="input barang-select">
                                     <option value="">-- Pilih Barang --</option>
                                     @foreach($barangs as $barang)
+                                        @php $isBlocked = in_array((int) $barang->id, $blockedBarangIds ?? [], true); @endphp
                                         <option value="{{ $barang->id }}" data-stok="{{ (int) ($barang->stok_tersedia ?? $barang->stok) }}"
                                             data-stok-asli="{{ (int) $barang->stok }}"
                                             data-harga="{{ $barang->harga_estimasi }}" data-unit="{{ $barang->unit }}"
-                                            data-terpakai="{{ (int) ($barang->total_request ?? 0) }}">
-                                            {{ $barang->nama_barang }}
+                                            data-terpakai="{{ (int) ($barang->total_request ?? 0) }}"
+                                            {{ $isBlocked ? 'disabled' : '' }}>
+                                            {{ $barang->nama_barang }}{{ $isBlocked ? ' (sedang direquest divisi)' : '' }}
                                         </option>
                                     @endforeach
                                 </select>
@@ -218,12 +226,13 @@ document.getElementById('btn-tambah').addEventListener('click', function () {
                 <div class="request-item__field">
                     <label>Barang</label>
                     <select name="items[${index}][barang_id]" class="input barang-select">
-                        <option value="">-- Pilih Barang --</option>
-                        @foreach($barangs as $barang)
-                            <option value="{{ $barang->id }}" data-stok="{{ (int) ($barang->stok_tersedia ?? $barang->stok) }}" data-stok-asli="{{ (int) $barang->stok }}" data-harga="{{ $barang->harga_estimasi }}" data-unit="{{ $barang->unit }}" data-terpakai="{{ (int) ($barang->total_request ?? 0) }}">{{ $barang->nama_barang }}</option>
-                        @endforeach
-                    </select>
-                </div>
+	                        <option value="">-- Pilih Barang --</option>
+	                        @foreach($barangs as $barang)
+                                @php $isBlocked = in_array((int) $barang->id, $blockedBarangIds ?? [], true); @endphp
+	                            <option value="{{ $barang->id }}" data-stok="{{ (int) ($barang->stok_tersedia ?? $barang->stok) }}" data-stok-asli="{{ (int) $barang->stok }}" data-harga="{{ $barang->harga_estimasi }}" data-unit="{{ $barang->unit }}" data-terpakai="{{ (int) ($barang->total_request ?? 0) }}" {{ $isBlocked ? 'disabled' : '' }}>{{ $barang->nama_barang }}{{ $isBlocked ? ' (sedang direquest divisi)' : '' }}</option>
+	                        @endforeach
+	                    </select>
+	                </div>
 
                 <div class="request-item__field">
                     <label>Qty</label>

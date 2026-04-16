@@ -68,7 +68,7 @@
                                         <button class="action-menu__item btn-detail" data-json='@json($req)' type="button">Detail</button>
 
                                         @if($isApprover && $req->status == 0)
-                                            <form method="POST" action="{{ route('approval.approve', $req->id) }}" class="action-menu__form {{ $user->role == 'SM' ? 'js-sm-approve-form' : '' }}">
+                                            <form method="POST" action="{{ route('approval.approve', $req->id) }}" class="action-menu__form">
                                                 @csrf
                                                 <button type="submit">Approve</button>
                                             </form>
@@ -295,14 +295,6 @@ window.addEventListener('load', function () {
 </script>
 @endif
 
-@if(session('print_approval_ids'))
-<script>
-window.addEventListener('load', function () {
-    window.open("{{ route('approval.pdf.sm', ['ids' => session('print_approval_ids'), 'doc' => session('print_approval_doc')]) }}", '_blank');
-});
-</script>
-@endif
-
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     const forms = document.querySelectorAll('.js-pga-action-form');
@@ -348,50 +340,4 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 </script>
 
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-    const smForms = document.querySelectorAll('.js-sm-approve-form');
-
-    smForms.forEach(form => {
-        form.addEventListener('submit', async function (e) {
-            e.preventDefault();
-
-            const printWindow = window.open('about:blank', '_blank');
-            const submitBtn = form.querySelector('button[type="submit"]');
-            if (submitBtn) submitBtn.disabled = true;
-
-            try {
-                const response = await fetch(form.action, {
-                    method: 'POST',
-                    body: new FormData(form),
-                    headers: {
-                        'Accept': 'application/json',
-                        'X-Requested-With': 'XMLHttpRequest',
-                    },
-                });
-
-                const data = await response.json();
-                if (!response.ok) {
-                    throw new Error(data.message || 'Gagal approve request');
-                }
-
-                if (data.pdf_url && printWindow) {
-                    printWindow.location.href = data.pdf_url;
-                } else if (printWindow) {
-                    printWindow.close();
-                }
-
-                window.location.href = "{{ route('request.index') }}";
-            } catch (error) {
-                if (printWindow) {
-                    printWindow.close();
-                }
-
-                if (submitBtn) submitBtn.disabled = false;
-                alert(error.message || 'Gagal approve request');
-            }
-        });
-    });
-});
-</script>
 @endsection

@@ -89,6 +89,21 @@
             </div>
         </div>
     @endif
+
+    @if(session('error'))
+        <div id="modalError" class="modal modal-success">
+            <div class="modal-content modal-content--success success-content">
+                <div class="error-icon" aria-hidden="true">!</div>
+                <h3 class="success-title">Peringatan</h3>
+                <p class="success-message">
+                    {{ session('error') }}
+                </p>
+                <button class="btn btn-primary" id="btnCloseError" type="button">
+                    OK
+                </button>
+            </div>
+        </div>
+    @endif
 </body>
 </html>
 <script>
@@ -111,6 +126,27 @@ document.addEventListener('DOMContentLoaded', function () {
             setTimeout(() => {
                 modal.classList.remove('show');
             }, 3000);
+        }
+
+    @endif
+
+    @if(session('error'))
+
+        const modalError = document.getElementById('modalError');
+        const btnError = document.getElementById('btnCloseError');
+
+        if(modalError){
+            modalError.classList.add('show');
+
+            if(btnError){
+                btnError.onclick = function(){
+                    modalError.classList.remove('show');
+                }
+            }
+
+            setTimeout(() => {
+                modalError.classList.remove('show');
+            }, 4000);
         }
 
     @endif

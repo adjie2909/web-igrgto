@@ -635,6 +635,7 @@ tbody tr:hover {
 
 .table-wrap {
     overflow-x: auto;
+    overflow-y: visible;
 }
 
 .table-wrap--wide {
@@ -963,6 +964,21 @@ input:focus {
     display: block;
 }
 
+.error-icon {
+    width: 58px;
+    height: 58px;
+    margin-bottom: 0.4rem;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: #fee2e2;
+    color: #b91c1c;
+    font-weight: 800;
+    font-size: 30px;
+    line-height: 1;
+}
+
 .success-title {
     font-size: 1.35rem;
     font-weight: 700;
@@ -1193,7 +1209,8 @@ input:focus {
     gap: 0.3rem;
 }
 
-.admin-menu a {
+.admin-menu a,
+.admin-menu .admin-menu__link {
     display: flex;
     align-items: center;
     min-height: 42px;
@@ -1206,8 +1223,19 @@ input:focus {
     transition: 0.18s ease;
 }
 
+.admin-menu .admin-menu__link {
+    width: 100%;
+    text-align: left;
+    background: transparent;
+    border: 0;
+    cursor: pointer;
+    font: inherit;
+}
+
 .admin-menu a:hover,
-.admin-menu a.is-active {
+.admin-menu a.is-active,
+.admin-menu .admin-menu__link:hover,
+.admin-menu .admin-menu__link:focus-visible {
     background: rgba(255, 255, 255, 0.12);
     color: #fff;
 }
@@ -1279,6 +1307,11 @@ input:focus {
     flex-wrap: wrap;
 }
 
+td.aksi {
+    display: table-cell;
+    text-align: center;
+}
+
 .action-menu {
     position: relative;
     display: inline-flex;
@@ -1335,8 +1368,21 @@ input:focus {
     z-index: 60;
 }
 
+.action-menu.action-menu--up .action-menu__panel {
+    top: auto;
+    bottom: calc(100% + 0.5rem);
+}
+
 .action-menu[open] .action-menu__panel {
     display: block;
+}
+
+tr:has(details.action-menu[open]) > td {
+    padding-bottom: 100px;
+}
+
+tr.has-action-open > td {
+    padding-bottom: 10px;
 }
 
 .action-menu__item,

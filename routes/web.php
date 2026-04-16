@@ -15,7 +15,7 @@ use App\Http\Controllers\TicketController;
 */
 
 Route::get('/', function () {
-    return redirect()->route('login'); // 🔥 FIX
+    return redirect()->route('login'); 
 });
 
 /*

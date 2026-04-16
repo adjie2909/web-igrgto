@@ -232,14 +232,46 @@ class RequestController extends Controller
             ->all();
     }
 
+    private function userHasPendingRequestAwaitingSmApproval(int $userId): bool
+    {
+        return RequestHeader::where('user_id', $userId)
+            ->where('status', 0)
+            ->exists();
+    }
+
+    private function getBlockedBarangIdsFromDivisionPendingRequests(int $divisionId, int $excludeUserId): array
+    {
+        return RequestDetail::join('request_headers', 'request_headers.id', '=', 'request_details.request_id')
+            ->join('users', 'users.id', '=', 'request_headers.user_id')
+            ->where('users.division_id', $divisionId)
+            ->where('request_headers.status', 0)
+            ->where('request_headers.user_id', '!=', $excludeUserId)
+            ->whereNotNull('request_details.barang_id')
+            ->pluck('request_details.barang_id')
+            ->map(fn($id) => (int) $id)
+            ->unique()
+            ->values()
+            ->all();
+    }
+
     // ===============================
     // FORM CREATE
     // ===============================
     public function create()
     {
+        $blockedBarangIds = [];
         $hiddenBarangIds = [];
         if (auth()->check() && auth()->user()->role === 'USER') {
-            $hiddenBarangIds = $this->getRemainingQuotaBarangIdsByDivision((int) auth()->user()->division_id);
+            $user = auth()->user();
+
+            if ($this->userHasPendingRequestAwaitingSmApproval((int) $user->id)) {
+                return redirect()
+                    ->route('request.index')
+                    ->with('error', 'Anda masih memiliki request yang belum di-approve oleh SM. Silakan tunggu sampai request disetujui terlebih dahulu sebelum membuat request baru.');
+            }
+
+            $hiddenBarangIds = $this->getRemainingQuotaBarangIdsByDivision((int) $user->division_id);
+            $blockedBarangIds = $this->getBlockedBarangIdsFromDivisionPendingRequests((int) $user->division_id, (int) $user->id);
         }
 
         $barangs = Barang::leftJoin('request_details', 'barangs.id', '=', 'request_details.barang_id')
@@ -292,7 +324,7 @@ class RequestController extends Controller
             return $barang;
         });
 
-        return view('request.create', compact('barangs', 'hiddenBarangIds'));
+        return view('request.create', compact('barangs', 'hiddenBarangIds', 'blockedBarangIds'));
     }
 
     public function stock($id)
@@ -328,6 +360,16 @@ class RequestController extends Controller
     // ===============================
     public function store(Request $request)
     {
+        $user = auth()->user();
+
+        if ($user && $user->role === 'USER') {
+            if ($this->userHasPendingRequestAwaitingSmApproval((int) $user->id)) {
+                return redirect()
+                    ->route('request.index')
+                    ->with('error', 'Anda masih memiliki request yang belum di-approve oleh SM. Silakan tunggu sampai request disetujui terlebih dahulu sebelum membuat request baru.');
+            }
+        }
+
         $request->validate([
             'tanggal_request' => 'required|date',
             'items.*.qty' => 'required|integer|min:1',
@@ -336,6 +378,35 @@ class RequestController extends Controller
         ]);
 
         $divisionId = auth()->user()->division_id;
+
+        if ($user && $user->role === 'USER') {
+            $selectedBarangIds = collect($request->input('items', []))
+                ->pluck('barang_id')
+                ->map(fn($id) => (int) $id)
+                ->filter(fn($id) => $id > 0)
+                ->unique()
+                ->values()
+                ->all();
+
+            $blockedBarangIds = $this->getBlockedBarangIdsFromDivisionPendingRequests((int) $divisionId, (int) $user->id);
+            $blockedSelected = collect($selectedBarangIds)->intersect($blockedBarangIds)->values();
+
+            if ($blockedSelected->isNotEmpty()) {
+                $names = Barang::whereIn('id', $blockedSelected->all())
+                    ->pluck('nama_barang')
+                    ->filter()
+                    ->values()
+                    ->all();
+
+                $label = empty($names)
+                    ? implode(', ', $blockedSelected->all())
+                    : implode(', ', $names);
+
+                return back()
+                    ->withInput()
+                    ->with('error', "Tidak bisa request barang berikut karena sedang direquest oleh rekan satu divisi dan masih menunggu approval: {$label}.");
+            }
+        }
 
         $hasSJM = DivisionApprover::where('division_id', $divisionId)
             ->where('role', 'SJM')

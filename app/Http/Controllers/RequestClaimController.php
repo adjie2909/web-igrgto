@@ -279,10 +279,6 @@ class RequestClaimController extends Controller
             $requestIds->push((int) $detail->request_id);
         }
 
-        if ($requestIds->unique()->count() !== 1) {
-            return back()->with('error', 'Pengambilan barang hanya boleh dari satu nomor request');
-        }
-
         $claimedMap = $this->claimedQtyByDetail($items->pluck('request_detail_id')->all());
 
         foreach ($items as $item) {
@@ -297,6 +293,7 @@ class RequestClaimController extends Controller
         $barangIds = $details->pluck('barang_id')->filter()->map(fn($id) => (int) $id)->unique()->values()->all();
         $availableMap = $this->getAvailableStockMap($barangIds);
 
+        $requestedByBarang = [];
         foreach ($items as $item) {
             $detail = $details->get($item['request_detail_id']);
             $barangId = (int) ($detail->barang_id ?? 0);
@@ -304,40 +301,76 @@ class RequestClaimController extends Controller
                 continue;
             }
 
+            $requestedByBarang[$barangId] = (int) ($requestedByBarang[$barangId] ?? 0) + (int) $item['qty'];
+        }
+
+        foreach ($requestedByBarang as $barangId => $totalRequested) {
             $available = (int) ($availableMap[$barangId] ?? 0);
+            $barangName = (string) ($details->firstWhere('barang_id', $barangId)?->barang?->nama_barang ?? 'Barang');
+            $unit = (string) ($details->firstWhere('barang_id', $barangId)?->barang?->unit ?? '');
+
             if ($available <= 0) {
-                return back()->with('error', "Stok {$detail->barang->nama_barang} sedang kosong, tidak bisa melakukan pengambilan.");
+                return back()->with('error', "Stok {$barangName} sedang kosong, tidak bisa melakukan pengambilan.");
             }
 
-            if ((int) $item['qty'] > $available) {
-                $unit = $detail->barang->unit ?? '';
-                return back()->with('error', "Qty {$detail->barang->nama_barang} melebihi stok tersedia. Tersedia {$available} {$unit}, diminta {$item['qty']} {$unit}.");
+            if ((int) $totalRequested > $available) {
+                return back()->with('error', "Qty {$barangName} melebihi stok tersedia. Tersedia {$available} {$unit}, diminta {$totalRequested} {$unit}.");
             }
         }
 
-        DB::transaction(function () use ($items, $details, $user, $requestIds) {
-            $claim = RequestClaim::create([
-                'request_id' => $requestIds->first(),
-                'user_id' => $user->id,
-                'tanggal_claim' => now()->toDateString(),
-                'nomor_claim' => $this->buildClaimNumber(),
-                'status' => 0,
-            ]);
+        $uniqueRequestIds = $requestIds->unique()->values();
+        $itemsByRequest = $items->groupBy(function ($item) use ($details) {
+            $detail = $details->get($item['request_detail_id']);
+            return (int) ($detail?->request_id ?? 0);
+        })->filter(fn($group, $requestId) => (int) $requestId > 0);
 
-            foreach ($items as $item) {
-                $detail = $details->get($item['request_detail_id']);
+        $docList = $details
+            ->pluck('requestHeader.nomor_dokumen')
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
 
-                RequestClaimDetail::create([
-                    'claim_id' => $claim->id,
-                    'request_detail_id' => $detail->id,
-                    'barang_id' => $detail->barang_id,
-                    'qty' => $item['qty'],
+        DB::transaction(function () use ($itemsByRequest, $details, $user) {
+            $year = date('Y');
+            $month = date('m');
+
+            $lastNomor = RequestClaim::whereYear('created_at', $year)
+                ->whereMonth('created_at', $month)
+                ->whereNotNull('nomor_claim')
+                ->lockForUpdate()
+                ->orderByDesc('id')
+                ->value('nomor_claim');
+
+            $nextNumber = 1;
+            if ($lastNomor && preg_match('/(\d+)$/', (string) $lastNomor, $matches)) {
+                $nextNumber = (int) $matches[1] + 1;
+            }
+
+            foreach ($itemsByRequest as $requestId => $itemsForRequest) {
+                $claim = RequestClaim::create([
+                    'request_id' => (int) $requestId,
+                    'user_id' => $user->id,
+                    'tanggal_claim' => now()->toDateString(),
+                    'nomor_claim' => sprintf('PB/GA/%s/%s/%04d', $year, $month, $nextNumber++),
+                    'status' => 0,
                 ]);
+
+                foreach ($itemsForRequest as $item) {
+                    $detail = $details->get($item['request_detail_id']);
+
+                    RequestClaimDetail::create([
+                        'claim_id' => $claim->id,
+                        'request_detail_id' => $detail->id,
+                        'barang_id' => $detail->barang_id,
+                        'qty' => $item['qty'],
+                    ]);
+                }
             }
         });
 
         return redirect()->route('request-claim.index')
-            ->with('success', 'Permintaan barang dari kuota berhasil dikirim ke PGA');
+            ->with('success', 'Permintaan barang dari kuota berhasil dikirim ke PGA' . (empty($docList) ? '' : ' untuk: ' . implode(', ', $docList)));
     }
 
     public function process($id)
