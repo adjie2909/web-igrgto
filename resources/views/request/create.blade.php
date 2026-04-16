@@ -33,10 +33,10 @@
                         <input type="date" name="tanggal_request" class="input" value="{{ now()->format('Y-m-d') }}" readonly>
                     </div>
 
-                    <div>
+                    <!-- <div>
                         <div class="request-builder__title">Daftar Barang</div>
                         <p class="request-builder__hint">Buat setiap barang sebagai satu item. Susunan ini sengaja dibuat lebih ringkas supaya lebih enak dibaca dan diisi.</p>
-                    </div>
+                    </div> -->
                 </div>
 
                 <div id="request-items" class="request-items">

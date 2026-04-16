@@ -9,7 +9,7 @@
             </div>
             <div class="auth-brand__copy">
                 <h2 class="auth-title">Login</h2>
-                <p class="auth-subtitle">Masuk ke portal internal Indogrosir Gorontalo.</p>
+                <p class="auth-subtitle">Portal internal Indogrosir Gorontalo.</p>
             </div>
         </div>
 
