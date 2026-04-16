@@ -4,7 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
-class requestheader extends Model
+class RequestHeader extends Model
 {
     protected $table = 'request_headers';
 

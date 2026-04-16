@@ -26,7 +26,16 @@
             "App\\": "app/",
             "Database\\Factories\\": "database/factories/",
             "Database\\Seeders\\": "database/seeders/"
-        }
+        },
+        "classmap": [
+            "app/Http/Controllers/ticketcontroller.php",
+            "app/Models/barang.php",
+            "app/Models/division.php",
+            "app/Models/requestdetail.php",
+            "app/Models/requestheader.php",
+            "app/Models/ticket.php",
+            "app/Models/ticketreply.php"
+        ]
     },
     "autoload-dev": {
         "psr-4": {

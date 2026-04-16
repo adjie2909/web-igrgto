@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Division extends Model
 {
@@ -12,7 +13,7 @@ class Division extends Model
         'nama_divisi',
     ];
 
-    public function users()
+    public function users(): HasMany
     {
         return $this->hasMany(User::class);
     }
