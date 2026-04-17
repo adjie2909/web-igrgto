@@ -247,7 +247,7 @@ class ApprovalController extends Controller
         $firstRequest = $requests->first();
 
         $mailData = [
-            'subject' => "Approval SM Selesai - {$doc}",
+            'subject' => "Permintaan Barang Siap Diproses PGA - {$doc}",
             'request' => $firstRequest,
             'requester_name' => $firstRequest->user->name ?? '-',
             'division_name' => $firstRequest->user->division->nama_divisi ?? '-',
@@ -258,7 +258,7 @@ class ApprovalController extends Controller
         ];
 
         try {
-            Mail::to([self::EDP_NOTIFICATION_EMAIL])->send(new SystemNotificationMail($mailData, 'request'));
+            Mail::to([self::EDP_NOTIFICATION_EMAIL])->send(new SystemNotificationMail($mailData, 'pga'));
         } catch (Throwable $e) {
             Log::warning('Gagal kirim email PDF approval SM ke PGA', [
                 'request_ids' => $requests->pluck('id')->all(),

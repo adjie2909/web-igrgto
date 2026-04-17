@@ -43,6 +43,11 @@
             </div>
 
             <div class="form-group">
+                <label>Stok Tersedia</label>
+                <input type="number" class="input" value="{{ (int) ($stokTersedia ?? 0) }}" readonly>
+            </div>
+
+            <div class="form-group">
                 <label>Harga Estimasi</label>
                 <input type="number" name="harga_estimasi" value="{{ $barang->harga_estimasi }}" class="input">
             </div>

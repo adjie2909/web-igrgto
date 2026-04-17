@@ -245,7 +245,8 @@ document.addEventListener('DOMContentLoaded', function(){
             const sisaSebelum = sisaStokMap[barangId];
             const kurang = Math.max(0, qty - sisaSebelum);
             const estimasi = kurang * harga;
-            sisaStokMap[barangId] = Math.max(0, sisaSebelum - qty);
+            const sisaSesudah = Math.max(0, sisaSebelum - qty);
+            sisaStokMap[barangId] = sisaSesudah;
             cb.dataset.estimasi = estimasi;
 
             if(kurang > 0){
@@ -254,7 +255,8 @@ document.addEventListener('DOMContentLoaded', function(){
                 statusEl.innerHTML = '<span style="color:green;">Ada stok</span>';
             }
 
-            qtySisaEl.innerText = String(sisaSebelum);
+            // Qty sisa = stok tersisa SETELAH qty item ini dialokasikan
+            qtySisaEl.innerText = String(sisaSesudah);
             qtyKurangEl.innerText = String(kurang);
             estimasiEl.innerText = formatRupiah(estimasi);
         });

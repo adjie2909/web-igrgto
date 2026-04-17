@@ -33,7 +33,8 @@
                 <th>Nama Barang</th>
                 <th>Fraction</th>
                 <th>Unit</th>
-                <th>Stok Saat Ini</th>
+                <th>Stok Master</th>
+                <th>Stok Tersedia</th>
                 <th width="90">Aksi</th>
             </tr>
         </thead>
@@ -45,7 +46,8 @@
                 <td>{{ $b->nama_barang }}</td>
                 <td>{{ $b->fraction }}</td>
                 <td>{{ $b->unit }}</td>
-                <td>{{ (int) ($b->stok_saat_ini ?? $b->stok ?? 0) }}</td>
+                <td>{{ (int) ($b->stok ?? 0) }}</td>
+                <td>{{ (int) ($b->stok_tersedia ?? $b->stok_saat_ini ?? $b->stok ?? 0) }}</td>
                 <td>
                     <details class="action-menu">
                         <summary class="action-menu__trigger">
@@ -61,6 +63,7 @@
                                 data-fraction="{{ $b->fraction }}"
                                 data-unit="{{ $b->unit }}"
                                 data-stok="{{ $b->stok }}"
+                                data-stok-tersedia="{{ (int) ($b->stok_tersedia ?? $b->stok_saat_ini ?? $b->stok ?? 0) }}"
                                 data-harga="{{ $b->harga_estimasi }}">
                                 Edit
                             </button>
@@ -123,6 +126,11 @@
                 </div>
 
                 <div class="form-group">
+                    <label>Stok Tersedia</label>
+                    <input type="number" id="edit_stok_tersedia" class="input" value="" readonly>
+                </div>
+
+                <div class="form-group">
                     <label>Harga Estimasi</label>
                     <input type="number" name="harga_estimasi" id="edit_harga_estimasi" class="input" value="{{ old('harga_estimasi') }}">
                 </div>
@@ -153,6 +161,7 @@ function openBarangModal(data) {
     document.getElementById('edit_fraction').value = data.fraction ?? '';
     document.getElementById('edit_unit').value = data.unit ?? '';
     document.getElementById('edit_stok').value = data.stok ?? '';
+    document.getElementById('edit_stok_tersedia').value = data.stok_tersedia ?? '';
     document.getElementById('edit_harga_estimasi').value = data.harga ?? '';
 
     editBarangForm.action = barangUpdateUrlTemplate.replace('__ID__', String(data.id ?? ''));
@@ -172,6 +181,7 @@ document.querySelectorAll('.js-edit-barang').forEach((button) => {
             fraction: this.dataset.fraction,
             unit: this.dataset.unit,
             stok: this.dataset.stok,
+            stok_tersedia: this.dataset.stokTersedia,
             harga: this.dataset.harga,
         });
     });
@@ -195,6 +205,7 @@ editBarangModal.addEventListener('click', function (e) {
         fraction: @json(old('fraction')),
         unit: @json(old('unit')),
         stok: @json(old('stok')),
+        stok_tersedia: @json(null),
         harga: @json(old('harga_estimasi')),
     });
 @endif

@@ -21,11 +21,13 @@ class BarangController extends Controller
             ->paginate(10);
 
         $stockNotifier = app(StockAvailabilityNotifier::class);
-        $stokSaatIniMap = $stockNotifier->getAvailableStockMap($barangs->pluck('id')->all());
+        $stokTersediaMap = $stockNotifier->getAvailableStockMap($barangs->pluck('id')->all());
 
-        $barangs->getCollection()->transform(function ($barang) use ($stokSaatIniMap) {
+        $barangs->getCollection()->transform(function ($barang) use ($stokTersediaMap) {
             $barangId = (int) $barang->id;
-            $barang->stok_saat_ini = max(0, (int) ($stokSaatIniMap[$barangId] ?? $barang->stok ?? 0));
+            $stokTersedia = max(0, (int) ($stokTersediaMap[$barangId] ?? $barang->stok ?? 0));
+            $barang->stok_saat_ini = $stokTersedia;
+            $barang->stok_tersedia = $stokTersedia;
             return $barang;
         });
 
@@ -68,7 +70,12 @@ class BarangController extends Controller
     public function edit($id)
     {
         $barang = Barang::findOrFail($id);
-        return view('admin.barang.edit', compact('barang'));
+
+        $stockNotifier = app(StockAvailabilityNotifier::class);
+        $stokTersediaMap = $stockNotifier->getAvailableStockMap([(int) $barang->id]);
+        $stokTersedia = max(0, (int) ($stokTersediaMap[(int) $barang->id] ?? $barang->stok ?? 0));
+
+        return view('admin.barang.edit', compact('barang', 'stokTersedia'));
     }
 
     public function update(Request $request, $id)

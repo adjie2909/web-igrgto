@@ -4,11 +4,24 @@
     $ticketData = $payload['ticket'] ?? null;
     $ticketEvent = $payload['event'] ?? null;
 
-    $requesterName = $payload['requester_name'] ?? ($data->user->name ?? '-');
-    $divisionName = $payload['division_name'] ?? ($requestData->user->division->nama_divisi ?? ($ticketData->user->division->nama_divisi ?? '-'));
+    $requesterName = $payload['requester_name']
+        ?? (is_object($data) ? ($data->user?->name ?? '-') : '-');
+
+    $divisionName = $payload['division_name']
+        ?? ($requestData?->user?->division?->nama_divisi
+            ?? ($ticketData?->user?->division?->nama_divisi ?? '-'));
     $targetRole = $payload['target_role'] ?? null;
 
-    $ticketStatus = match ((int) ($ticketData->status ?? 0)) {
+    $requestStatusLabel = match ((int) ($requestData?->status ?? -1)) {
+        0 => 'Pending',
+        1 => 'Approved',
+        2 => 'Diproses',
+        3 => 'Selesai',
+        4 => 'Rejected',
+        default => '-',
+    };
+
+    $ticketStatus = match ((int) ($ticketData?->status ?? 0)) {
         1 => 'Diproses',
         2 => 'Selesai',
         default => 'Open',
@@ -68,6 +81,38 @@
                                 <tr>
                                     <td style="padding:10px 0; color:#6b7280;">Level Approval</td>
                                     <td style="padding:10px 0; font-weight:600;">{{ $targetRole ?? '-' }}</td>
+                                </tr>
+                            </table>
+                        @elseif($type === 'pga')
+                            <h2 style="margin:0 0 10px; font-size:20px; color:#111827;">Permintaan Barang Siap Diproses (PGA)</h2>
+                            <p style="margin:0 0 18px; font-size:14px; line-height:1.6; color:#374151;">
+                                Permintaan barang berikut sudah selesai approval (SAM &amp; SM) dan dapat segera diproses oleh PGA.
+                            </p>
+
+                            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse; font-size:14px;">
+                                <tr>
+                                    <td style="padding:10px 0; width:180px; color:#6b7280; border-bottom:1px solid #e5e7eb;">Nomor Dokumen</td>
+                                    <td style="padding:10px 0; border-bottom:1px solid #e5e7eb; font-weight:600;">{{ $requestData->nomor_dokumen ?? '-' }}</td>
+                                </tr>
+                                <tr>
+                                    <td style="padding:10px 0; color:#6b7280; border-bottom:1px solid #e5e7eb;">Tanggal Request</td>
+                                    <td style="padding:10px 0; border-bottom:1px solid #e5e7eb;">{{ $requestData->tanggal_request ?? '-' }}</td>
+                                </tr>
+                                <tr>
+                                    <td style="padding:10px 0; color:#6b7280; border-bottom:1px solid #e5e7eb;">Pemohon</td>
+                                    <td style="padding:10px 0; border-bottom:1px solid #e5e7eb;">{{ $requesterName }}</td>
+                                </tr>
+                                <tr>
+                                    <td style="padding:10px 0; color:#6b7280; border-bottom:1px solid #e5e7eb;">Divisi</td>
+                                    <td style="padding:10px 0; border-bottom:1px solid #e5e7eb;">{{ $divisionName }}</td>
+                                </tr>
+                                <tr>
+                                    <td style="padding:10px 0; color:#6b7280; border-bottom:1px solid #e5e7eb;">Status</td>
+                                    <td style="padding:10px 0; border-bottom:1px solid #e5e7eb; font-weight:600;">{{ $requestStatusLabel }}</td>
+                                </tr>
+                                <tr>
+                                    <td style="padding:10px 0; color:#6b7280;">Tujuan</td>
+                                    <td style="padding:10px 0; font-weight:600;">{{ $targetRole ?? 'PGA' }}</td>
                                 </tr>
                             </table>
                         @elseif($type === 'ticket')

@@ -26,6 +26,7 @@ class SystemNotificationMail extends Mailable
         $fromName = match ($this->type) {
             'request' => 'IGR - Permintaan Barang',
             'ticket' => 'IGR - Ticketing System',
+            'pga' => 'IGR - PGA',
             default => config('app.name'),
         };
 
@@ -36,6 +37,7 @@ class SystemNotificationMail extends Mailable
         $subject = match ($this->type) {
             'request' => 'Permintaan Barang Baru',
             'ticket' => 'Ticket Baru Dibuat',
+            'pga' => 'Permintaan Barang Siap Diproses (PGA)',
             default => 'Notifikasi Sistem',
         };
 
