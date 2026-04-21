@@ -92,8 +92,17 @@ function updateActionMenuDirection(menu) {
 
     const margin = 12;
     const triggerRect = trigger.getBoundingClientRect();
+    const boundsCandidates = [window.innerHeight];
+    const clippingContainer = menu.closest('.table-wrap, .table-section, .card, .modal-content');
 
-    const wouldOverflowBottom = triggerRect.bottom + margin + panelHeight > window.innerHeight;
+    if (clippingContainer) {
+        const containerRect = clippingContainer.getBoundingClientRect();
+        boundsCandidates.push(containerRect.bottom);
+    }
+
+    const lowerBound = Math.min(...boundsCandidates);
+
+    const wouldOverflowBottom = triggerRect.bottom + margin + panelHeight > lowerBound;
     const wouldOverflowTop = triggerRect.top - margin - panelHeight < 0;
 
     if (wouldOverflowBottom && !wouldOverflowTop) {

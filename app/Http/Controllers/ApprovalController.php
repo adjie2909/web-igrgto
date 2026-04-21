@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Mail\SystemNotificationMail;
+use App\Models\RequestDetail;
 use App\Models\RequestHeader;
 use App\Services\StockAvailabilityNotifier;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -81,10 +82,10 @@ class ApprovalController extends Controller
         return strtoupper(str_replace('/', '-', $base));
     }
 
-    private function getApprovalPageBaselineStockMap($requests): array
+    private function getApprovalPageBaselineStockMap($requestRows): array
     {
-        $barangIds = $requests
-            ->flatMap(fn($req) => $req->details->pluck('barang_id'))
+        $barangIds = collect($requestRows)
+            ->pluck('barang_id')
             ->filter()
             ->unique()
             ->values()
@@ -93,15 +94,13 @@ class ApprovalController extends Controller
         $availableMap = $this->getAvailableStockMap($barangIds);
         $qtyByBarangOnPage = [];
 
-        foreach ($requests as $req) {
-            foreach ($req->details as $detail) {
-                $barangId = (int) $detail->barang_id;
-                if ($barangId <= 0) {
-                    continue;
-                }
-
-                $qtyByBarangOnPage[$barangId] = (int) ($qtyByBarangOnPage[$barangId] ?? 0) + (int) $detail->qty;
+        foreach ($requestRows as $row) {
+            $barangId = (int) $row->barang_id;
+            if ($barangId <= 0) {
+                continue;
             }
+
+            $qtyByBarangOnPage[$barangId] = (int) ($qtyByBarangOnPage[$barangId] ?? 0) + (int) $row->qty;
         }
 
         foreach ($qtyByBarangOnPage as $barangId => $qty) {
@@ -109,6 +108,37 @@ class ApprovalController extends Controller
         }
 
         return $availableMap;
+    }
+
+    private function buildApprovalSummary($requestRows): array
+    {
+        $rows = collect($requestRows)->values();
+        $stockMap = $this->getApprovalPageBaselineStockMap($rows);
+
+        $totalItem = 0;
+        $totalQty = 0;
+        $totalEstimasi = 0;
+
+        foreach ($rows as $row) {
+            $barangId = (int) $row->barang_id;
+            $qty = (int) $row->qty;
+            $harga = (int) ($row->harga_manual ?? ($row->barang->harga_estimasi ?? 0));
+
+            $stokSaatIni = (int) ($stockMap[$barangId] ?? 0);
+            $kurang = max(0, $qty - $stokSaatIni);
+
+            $totalItem++;
+            $totalQty += $qty;
+            $totalEstimasi += $kurang * $harga;
+
+            $stockMap[$barangId] = max(0, $stokSaatIni - $qty);
+        }
+
+        return [
+            'total_item' => $totalItem,
+            'total_qty' => $totalQty,
+            'total_estimasi' => $totalEstimasi,
+        ];
     }
 
     private function sendApprovalNotification(RequestHeader $header): void
@@ -429,14 +459,40 @@ class ApprovalController extends Controller
 
         $level = $user->role == 'SAM' ? 2 : 3;
 
-        $requests = RequestHeader::with(['user.division', 'details.barang'])
-            ->where('current_approval_level', $level)
-            ->where('status', 0)
-            ->get();
+        $baseQuery = RequestDetail::with(['barang', 'requestHeader.user.division'])
+            ->whereHas('requestHeader', function ($query) use ($level) {
+                $query->where('current_approval_level', $level)
+                    ->where('status', 0);
+            })
+            ->orderByDesc(
+                RequestHeader::select('created_at')
+                    ->whereColumn('request_headers.id', 'request_details.request_id')
+                    ->limit(1)
+            )
+            ->orderBy('request_id')
+            ->latest();
 
-        $availableStockMap = $this->getApprovalPageBaselineStockMap($requests);
+        $allPendingRows = (clone $baseQuery)->get();
 
-        return view('approval.bulk', compact('requests', 'availableStockMap'));
+        $requestRows = (clone $baseQuery)
+            ->paginate(10)
+            ->withQueryString();
+
+        $availableStockMap = $this->getApprovalPageBaselineStockMap($requestRows->getCollection());
+        $globalAvailableStockMap = $this->getApprovalPageBaselineStockMap($allPendingRows);
+        $globalApprovalSummary = $this->buildApprovalSummary($allPendingRows);
+        $globalPendingRows = $allPendingRows->map(function ($row) use ($globalAvailableStockMap) {
+            return [
+                'detail_id' => (int) $row->id,
+                'request_id' => (int) $row->request_id,
+                'barang_id' => (int) $row->barang_id,
+                'qty' => (int) $row->qty,
+                'harga' => (int) ($row->harga_manual ?? ($row->barang->harga_estimasi ?? 0)),
+                'base_stok' => max(0, (int) ($globalAvailableStockMap[$row->barang_id] ?? ($row->barang->stok ?? 0))),
+            ];
+        })->values();
+
+        return view('approval.bulk', compact('requestRows', 'availableStockMap', 'globalAvailableStockMap', 'globalApprovalSummary', 'globalPendingRows'));
     }
 
     public function stock(Request $request, $id)
@@ -498,12 +554,38 @@ class ApprovalController extends Controller
             ->values()
             ->all();
 
+        $pageIds = collect($request->page_request_ids ?? [])
+            ->map(fn($id) => (int) $id)
+            ->filter(fn($id) => $id > 0)
+            ->unique()
+            ->values()
+            ->all();
+
+        $approveAllPending = $request->boolean('approve_all_pending');
+
+        if (empty($pageIds)) {
+            $pageIds = $ids;
+        }
+
         // Validasi jika tidak ada yang dipilih
         // if (empty($ids)) {
         //     return back()->with('error', 'Tidak ada data yang dipilih');
         // }
 
         $level = $user->role == 'SAM' ? 2 : 3;
+
+        if ($approveAllPending) {
+            $ids = RequestHeader::where('current_approval_level', $level)
+                ->where('status', 0)
+                ->pluck('id')
+                ->map(fn($id) => (int) $id)
+                ->filter(fn($id) => $id > 0)
+                ->unique()
+                ->values()
+                ->all();
+
+            $pageIds = $ids;
+        }
 
         // Ambil data sesuai level dan status
         $headers = RequestHeader::whereIn('id', $ids)
@@ -547,6 +629,7 @@ class ApprovalController extends Controller
         $autoRejectedHeaders = RequestHeader::with('details')
             ->where('status', 0)
             ->where('current_approval_level', $level)
+            ->whereIn('id', $pageIds)
             ->whereNotIn('id', $ids)
             ->get();
 
@@ -563,6 +646,7 @@ class ApprovalController extends Controller
         // Auto reject untuk data yang tidak dipilih
         RequestHeader::where('status', 0)
             ->where('current_approval_level', $level)
+            ->whereIn('id', $pageIds)
             ->whereNotIn('id', $ids)
             ->update([
                 'status' => 4,
