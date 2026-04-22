@@ -1,94 +1,86 @@
 @extends('layouts.app')
 
 @section('content')
-
-<div style="display:flex; justify-content:center; align-items:center; min-height:100vh;">
-
-    <div class="card" style="width:360px;">
-
-        <div style="text-align:center; margin-bottom:20px;">
-            <h2 style="margin-bottom:5px;">LOGIN</h2>
-            <div style="font-size:13px; color:#64748b;">
+<div class="auth-shell">
+    <div class="card auth-card">
+        <div class="auth-brand">
+            <div class="auth-brand__logo">
+                <img src="{{ asset('assets/logo_indogrosir.png') }}" alt="Logo Indogrosir">
+            </div>
+            <div class="auth-brand__copy">
+                <h2 class="auth-title">Login</h2>
+                <p class="auth-subtitle">Portal internal Indogrosir Gorontalo.</p>
             </div>
         </div>
+
+        @if($errors->any())
+            <div id="errorPopup" class="auth-error">
+                User ID atau Password salah
+            </div>
+        @endif
 
         <form method="POST" action="{{ route('login') }}">
             @csrf
 
-            <!-- USERID -->
             <div class="form-group">
                 <label>User ID</label>
-                <input type="text" name="userid" id="userid" class="input" maxlength="3" required>
+                <input type="text" name="userid" id="userid" class="input" maxlength="3" value="{{ old('userid') }}" required>
             </div>
 
-            <!-- PASSWORD -->
             <div class="form-group">
                 <label>Password</label>
-                <div style="position:relative;">
-                    <input type="password" name="password" id="password" class="input">
-
-                    <span onclick="togglePassword('password', this)"
-                        style="position:absolute; right:10px; top:50%; transform:translateY(-50%);
-                                cursor:pointer; font-size:13px; color:#64748b;">
+                <div class="password-field">
+                    <input type="password" name="password" id="password" class="input password-input">
+                    <button type="button" onclick="togglePassword('password', this)" class="password-toggle" aria-label="Tampilkan password" aria-pressed="false">
                         Show
-                    </span>
+                    </button>
                 </div>
             </div>
 
-            <!-- REMEMBER -->
-            <div style="margin-bottom:15px; font-size:13px;">
-                <input type="checkbox" name="remember"> Remember me
+            <div class="page-stack" style="gap:0.75rem; margin-top:1rem;">
+                <button class="btn btn-primary" style="width:100%;" type="submit">Login</button>
+
+                @if (Route::has('register'))
+                    <a href="{{ route('register') }}" class="btn btn-outline" style="width:100%;">Register</a>
+                @endif
             </div>
-
-            <!-- BUTTON -->
-            <button class="btn btn-primary" style="width:100%; margin-top:5px;">
-                Login
-            </button>
-
-            <div style="margin-top:15px; text-align:center; font-size:13px;">
-                Belum punya akun?
-                <a href="{{ route('register') }}">Register</a>
-            </div>
-
         </form>
-
     </div>
-
 </div>
 
 <script>
-document.addEventListener('DOMContentLoaded', function () {
+setTimeout(() => {
+    const popup = document.getElementById('errorPopup');
+    if (popup) {
+        popup.style.display = 'none';
+    }
+}, 3000);
+</script>
 
-    // 🔥 USERID AUTO UPPERCASE
+<script>
+document.addEventListener('DOMContentLoaded', function () {
     const userid = document.getElementById('userid');
     if (userid) {
         userid.addEventListener('input', function () {
             this.value = this.value.toUpperCase();
         });
     }
-
-    // 🔥 NAME AUTO KAPITAL
-    const name = document.getElementById('name');
-    if (name) {
-        name.addEventListener('input', function () {
-            this.value = this.value.replace(/\b\w/g, c => c.toUpperCase());
-        });
-    }
-
 });
 
-// 🔥 SHOW / HIDE PASSWORD
 function togglePassword(id, el) {
     const input = document.getElementById(id);
 
-    if (input.type === "password") {
-        input.type = "text";
-        el.innerText = "Hide";
+    if (input.type === 'password') {
+        input.type = 'text';
+        el.innerText = 'Hide';
+        el.setAttribute('aria-label', 'Sembunyikan password');
+        el.setAttribute('aria-pressed', 'true');
     } else {
-        input.type = "password";
-        el.innerText = "Show";
+        input.type = 'password';
+        el.innerText = 'Show';
+        el.setAttribute('aria-label', 'Tampilkan password');
+        el.setAttribute('aria-pressed', 'false');
     }
 }
 </script>
-
 @endsection

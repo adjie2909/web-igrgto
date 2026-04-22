@@ -17,4 +17,15 @@ require __DIR__.'/../vendor/autoload.php';
 /** @var Application $app */
 $app = require_once __DIR__.'/../bootstrap/app.php';
 
+$subfolder = '/'.basename(dirname(__DIR__));
+$requestUri = $_SERVER['REQUEST_URI'] ?? '';
+
+if (
+    ($requestUri === $subfolder || str_starts_with($requestUri, $subfolder.'/'))
+    && ! str_starts_with($requestUri, $subfolder.'/public')
+) {
+    $_SERVER['SCRIPT_NAME'] = $subfolder.'/index.php';
+    $_SERVER['PHP_SELF'] = $subfolder.'/index.php';
+}
+
 $app->handleRequest(Request::capture());

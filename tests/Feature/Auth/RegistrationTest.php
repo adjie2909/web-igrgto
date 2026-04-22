@@ -13,14 +13,20 @@ class RegistrationTest extends TestCase
     {
         $response = $this->get('/register');
 
-        $response->assertStatus(200);
+        $response->assertOk();
     }
 
     public function test_new_users_can_register(): void
     {
+        $division = \App\Models\Division::create([
+            'nama_divisi' => 'IT',
+        ]);
+
         $response = $this->post('/register', [
+            'userid' => 'USR',
             'name' => 'Test User',
             'email' => 'test@example.com',
+            'division_id' => $division->id,
             'password' => 'password',
             'password_confirmation' => 'password',
         ]);

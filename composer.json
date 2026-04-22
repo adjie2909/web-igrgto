@@ -12,6 +12,7 @@
         "laravel/tinker": "^3.0"
     },
     "require-dev": {
+        "barryvdh/laravel-ide-helper": "^3.7",
         "fakerphp/faker": "^1.23",
         "laravel/breeze": "^2.4",
         "laravel/pail": "^1.2.5",
@@ -25,7 +26,16 @@
             "App\\": "app/",
             "Database\\Factories\\": "database/factories/",
             "Database\\Seeders\\": "database/seeders/"
-        }
+        },
+        "classmap": [
+            "app/Http/Controllers/ticketcontroller.php",
+            "app/Models/barang.php",
+            "app/Models/division.php",
+            "app/Models/requestdetail.php",
+            "app/Models/requestheader.php",
+            "app/Models/ticket.php",
+            "app/Models/ticketreply.php"
+        ]
     },
     "autoload-dev": {
         "psr-4": {

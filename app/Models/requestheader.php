@@ -4,7 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
-class requestheader extends Model
+class RequestHeader extends Model
 {
     protected $table = 'request_headers';
 
@@ -23,5 +23,20 @@ class requestheader extends Model
     public function details()
     {
         return $this->hasMany(RequestDetail::class, 'request_id');
+    }
+
+    public function claims()
+    {
+        return $this->hasMany(RequestClaim::class, 'request_id');
+    }
+
+    public function approverLevel2()
+    {
+        return $this->belongsTo(User::class, 'approved_by_level2');
+    }
+
+    public function approverLevel3()
+    {
+        return $this->belongsTo(User::class, 'approved_by_level3');
     }
 }
