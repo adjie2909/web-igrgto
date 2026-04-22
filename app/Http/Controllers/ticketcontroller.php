@@ -184,9 +184,26 @@ class TicketController extends Controller
     public function close($id)
     {
         $ticket = Ticket::findOrFail($id);
+        $user = auth()->user();
+        $divisionId = (int) ($user->division_id ?? 0);
 
         if ($ticket->status == 2) {
             return back()->with('error', 'Ticket sudah ditutup');
+        }
+
+        // Hanya handler yang boleh menutup ticket (Admin boleh override).
+        if (!in_array($divisionId, [self::DIV_EDP, self::DIV_PGA, self::DIV_ADMIN], true)) {
+            abort(403);
+        }
+
+        $isHandledByPga = ((int) ($ticket->level ?? 1) === 2) || ((string) ($ticket->current_handler ?? 'EDP') === 'PGA');
+
+        if ($divisionId === self::DIV_EDP && $isHandledByPga) {
+            return back()->with('error', 'Ticket sudah dieskalasi ke PGA, EDP tidak bisa menyelesaikan ticket ini.');
+        }
+
+        if ($divisionId === self::DIV_PGA && !$isHandledByPga) {
+            return back()->with('error', 'Ticket belum dieskalasi ke PGA, tidak bisa diselesaikan oleh PGA.');
         }
 
         $ticket->status = 2;

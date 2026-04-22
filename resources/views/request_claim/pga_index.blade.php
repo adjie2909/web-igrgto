@@ -3,9 +3,8 @@
 @section('content')
     <div class="page-stack">
     <x-public-hero
-        eyebrow="Warehouse Flow"
+    
         title="Pengambilan Barang PGA"
-        subtitle="Permintaan barang dari kuota approved. PGA memproses lalu menyelesaikan serah terima."
     />
 
     <div class="card">

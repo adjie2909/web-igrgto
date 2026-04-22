@@ -268,6 +268,10 @@ p {
     margin: 0;
 }
 
+.canvas-wide--approval {
+    width: min(1920px, calc(100vw - 1rem));
+}
+
 .page-stack {
     display: flex;
     flex-direction: column;
@@ -617,6 +621,30 @@ table,
 .table-modern {
     width: 100%;
     border-collapse: collapse;
+}
+
+/* Bulk approval table: tighter rows + align input nicely */
+.approval-bulk-table th,
+.approval-bulk-table td {
+    padding: 0.85rem 0.75rem;
+    vertical-align: middle;
+}
+
+.approval-bulk-table th {
+    white-space: nowrap;
+}
+
+.approval-bulk-table td.nowrap {
+    white-space: nowrap;
+}
+
+/* Compact inputs inside dense tables (used by bulk approval qty edit) */
+table .qty-edit-input.input {
+    min-height: 36px;
+    padding: 0.55rem 0.65rem;
+    border-radius: 12px;
+    font-size: 0.9rem;
+    text-align: center;
 }
 
 th,
@@ -1339,12 +1367,24 @@ input:focus {
 td.aksi {
     display: table-cell;
     text-align: center;
+    vertical-align: top;
+    width: 90px;
 }
 
 .action-menu {
     position: relative;
     display: inline-flex;
     justify-content: center;
+    align-items: flex-start;
+}
+
+/* Override default <details> behavior (display:none) so transitions can animate */
+details.action-menu > .action-menu__panel {
+    display: block;
+}
+
+details.action-menu:not([open]) > .action-menu__panel {
+    display: block;
 }
 
 .action-menu__trigger {
@@ -1388,7 +1428,7 @@ td.aksi {
     top: calc(100% + 0.5rem);
     right: 0;
     min-width: 168px;
-    padding: 0.22rem;
+    padding: 0.3rem;
     border-radius: 14px;
     background: #fffdfa;
     border: 1px solid rgba(28, 25, 23, 0.08);
@@ -1444,12 +1484,8 @@ td.aksi {
     transition-delay: 0.12s;
 }
 
-tr:has(details.action-menu[open]) > td {
-    padding-bottom: 148px;
-}
-
 tr.has-action-open > td {
-    padding-bottom: 148px;
+    padding-bottom: var(--action-open-space, 1rem);
 }
 
 .action-menu__item,
@@ -1459,7 +1495,7 @@ tr.has-action-open > td {
     align-items: center;
     justify-content: flex-start;
     min-height: 32px;
-    padding: 0.42rem 0.62rem;
+    padding: 0.65rem 0.8rem;
     border: 0;
     border-radius: 10px;
     background: transparent;

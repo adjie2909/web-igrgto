@@ -62,6 +62,81 @@ function showFlashModal(type, message) {
     }, normalizedType === 'error' ? 4500 : 3000);
 }
 
+function buildCustomValidityMessage(field) {
+    const label = field?.dataset?.fieldLabel || field?.getAttribute('aria-label') || 'Input';
+    const itemName = (field?.dataset?.itemName || '').trim();
+    const unit = (field?.dataset?.unit || '').trim();
+    const suffix = unit ? ` ${unit}` : '';
+    const prefix = itemName ? `${itemName}: ` : '';
+
+    const max = field?.getAttribute('max');
+    const min = field?.getAttribute('min');
+
+    if (field.validity.valueMissing) {
+        return `${prefix}${label} wajib diisi.`;
+    }
+
+    if (field.validity.rangeOverflow && max !== null && max !== '') {
+        return `${prefix}${label} maksimal ${max}${suffix}.`;
+    }
+
+    if (field.validity.rangeUnderflow && min !== null && min !== '') {
+        return `${prefix}${label} minimal ${min}${suffix}.`;
+    }
+
+    if (field.validity.stepMismatch) {
+        return `${prefix}${label} tidak sesuai kelipatan yang diizinkan.`;
+    }
+
+    if (field.validity.typeMismatch) {
+        return `${prefix}${label} formatnya tidak valid.`;
+    }
+
+    if (field.validity.patternMismatch) {
+        return `${prefix}${label} formatnya tidak sesuai.`;
+    }
+
+    return `${prefix}${label} tidak valid.`;
+}
+
+let lastCustomValidityShownAt = 0;
+document.addEventListener(
+    'invalid',
+    (event) => {
+        const field = event.target;
+        if (!(field instanceof HTMLInputElement || field instanceof HTMLSelectElement || field instanceof HTMLTextAreaElement)) {
+            return;
+        }
+
+        if (field.dataset.customValidity !== '1') {
+            return;
+        }
+
+        // Cancel the native browser tooltip bubble.
+        event.preventDefault();
+
+        const now = Date.now();
+        if (now - lastCustomValidityShownAt < 250) {
+            return;
+        }
+        lastCustomValidityShownAt = now;
+
+        try {
+            field.scrollIntoView({ block: 'center', inline: 'nearest' });
+        } catch (e) {
+            // ignore
+        }
+        try {
+            field.focus({ preventScroll: true });
+        } catch (e) {
+            // ignore
+        }
+
+        showFlashModal('error', buildCustomValidityMessage(field));
+    },
+    true
+);
+
 window.setFlashAndRedirect = function (type, message, url) {
     const key = type === 'error' ? 'flash_error' : 'flash_success';
     try {
@@ -92,15 +167,7 @@ function updateActionMenuDirection(menu) {
 
     const margin = 12;
     const triggerRect = trigger.getBoundingClientRect();
-    const boundsCandidates = [window.innerHeight];
-    const clippingContainer = menu.closest('.table-wrap, .table-section, .card, .modal-content');
-
-    if (clippingContainer) {
-        const containerRect = clippingContainer.getBoundingClientRect();
-        boundsCandidates.push(containerRect.bottom);
-    }
-
-    const lowerBound = Math.min(...boundsCandidates);
+    const lowerBound = getActionMenuLowerBound(menu);
 
     const wouldOverflowBottom = triggerRect.bottom + margin + panelHeight > lowerBound;
     const wouldOverflowTop = triggerRect.top - margin - panelHeight < 0;
@@ -110,6 +177,25 @@ function updateActionMenuDirection(menu) {
     }
 }
 
+function getActionMenuLowerBound(menu) {
+    let lowerBound = window.innerHeight;
+    let current = menu.parentElement;
+
+    while (current) {
+        const styles = window.getComputedStyle(current);
+        const canClipY = ['hidden', 'auto', 'scroll', 'clip'].includes(styles.overflowY);
+
+        if (canClipY) {
+            const rect = current.getBoundingClientRect();
+            lowerBound = Math.min(lowerBound, rect.bottom);
+        }
+
+        current = current.parentElement;
+    }
+
+    return lowerBound;
+}
+
 function closeActionMenus(exceptMenu = null) {
     document.querySelectorAll('.action-menu.is-open').forEach((menu) => {
         if (menu === exceptMenu) {
@@ -117,11 +203,82 @@ function closeActionMenus(exceptMenu = null) {
         }
 
         menu.classList.remove('is-open');
+        syncActionRowSpacing(menu);
+        resetDetailsActionMenuAnimation(menu);
         const button = menu.querySelector('[data-action-menu-trigger]');
         if (button) {
             button.setAttribute('aria-expanded', 'false');
         }
     });
+}
+
+function resetDetailsActionMenuAnimation(menu) {
+    if (!menu) return;
+    const panel = menu.querySelector('.action-menu__panel');
+    if (!panel) return;
+
+    panel.style.removeProperty('transition');
+    panel.style.removeProperty('opacity');
+    panel.style.removeProperty('transform');
+    panel.style.removeProperty('pointer-events');
+    panel.style.removeProperty('visibility');
+}
+
+function animateDetailsActionMenuOpen(menu) {
+    if (!menu) return;
+    const panel = menu.querySelector('.action-menu__panel');
+    if (!panel) return;
+
+    // Prime a known "closed" visual state, then transition to the open state.
+    const isUp = menu.classList.contains('action-menu--up');
+    const fromTransform = isUp ? 'translateY(10px) scale(0.98)' : 'translateY(-10px) scale(0.98)';
+
+    panel.style.transition = 'none';
+    panel.style.visibility = 'visible';
+    panel.style.pointerEvents = 'none';
+    panel.style.opacity = '0';
+    panel.style.transform = fromTransform;
+    // Force reflow so the browser commits the initial state.
+    void panel.offsetHeight;
+
+    panel.style.transition = 'opacity 0.26s ease, transform 0.28s cubic-bezier(0.22, 1, 0.36, 1)';
+    window.requestAnimationFrame(() => {
+        panel.style.opacity = '1';
+        panel.style.transform = 'translateY(0) scale(1)';
+        panel.style.pointerEvents = 'auto';
+    });
+
+    panel.addEventListener(
+        'transitionend',
+        () => {
+            // Hand control back to CSS after the first open animation.
+            resetDetailsActionMenuAnimation(menu);
+        },
+        { once: true }
+    );
+}
+
+function syncActionRowSpacing(menu) {
+    if (!menu) return;
+
+    const row = menu.closest('tr');
+    const panel = menu.querySelector('.action-menu__panel');
+
+    if (!row || !panel) return;
+
+    if (!menu.hasAttribute('open')) {
+        resetDetailsActionMenuAnimation(menu);
+        row.style.removeProperty('--action-open-space');
+        row.classList.remove('has-action-open');
+        return;
+    }
+
+    const isUp = menu.classList.contains('action-menu--up');
+    const panelHeight = panel.offsetHeight || 0;
+    const extraSpace = isUp ? 0 : Math.max(0, panelHeight + 18);
+
+    row.style.setProperty('--action-open-space', `${extraSpace}px`);
+    row.classList.add('has-action-open');
 }
 
 document.addEventListener('click', (event) => {
@@ -160,23 +317,29 @@ document.addEventListener(
         const row = menu.closest('tr');
         if (!menu.hasAttribute('open')) {
             menu.classList.remove('action-menu--up');
+            resetDetailsActionMenuAnimation(menu);
             if (row) {
                 const anyOpen = !!row.querySelector('details.action-menu[open]');
                 row.classList.toggle('has-action-open', anyOpen);
+                if (!anyOpen) {
+                    row.style.removeProperty('--action-open-space');
+                }
             }
             return;
         }
 
         updateActionMenuDirection(menu);
-        if (row) {
-            row.classList.add('has-action-open');
-        }
+        animateDetailsActionMenuOpen(menu);
+        syncActionRowSpacing(menu);
     },
     true
 );
 
 window.addEventListener('resize', () => {
-    document.querySelectorAll('details.action-menu[open]').forEach((menu) => updateActionMenuDirection(menu));
+    document.querySelectorAll('details.action-menu[open]').forEach((menu) => {
+        updateActionMenuDirection(menu);
+        syncActionRowSpacing(menu);
+    });
 });
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -194,6 +357,30 @@ document.addEventListener('DOMContentLoaded', () => {
     } catch (e) {
         // ignore
     }
+
+    // Prevent accidental double-submit for normal forms (in addition to server-side de-dupe).
+    document.querySelectorAll('form').forEach((form) => {
+        if (!(form instanceof HTMLFormElement)) return;
+        if (form.dataset.preventDoubleSubmitBound === '1') return;
+        form.dataset.preventDoubleSubmitBound = '1';
+
+        form.addEventListener('submit', (event) => {
+            if (form.dataset.submitting === '1') {
+                event.preventDefault();
+                return;
+            }
+
+            form.dataset.submitting = '1';
+
+            form.querySelectorAll('button[type="submit"], input[type="submit"]').forEach((el) => {
+                try {
+                    el.disabled = true;
+                } catch (e) {
+                    // ignore
+                }
+            });
+        });
+    });
 });
 
 Alpine.start();

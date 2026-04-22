@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Throwable;
 
 class RequestController extends Controller
@@ -454,6 +455,7 @@ class RequestController extends Controller
                 'request_id' => $header->id,
                 'barang_id' => $item['barang_id'] ?? null,
                 'qty' => $item['qty'],
+                'qty_original' => $item['qty'],
                 'keterangan' => $item['keterangan'] ?? null,
                 'harga_manual' => $item['harga_manual'] ?? null,
                 'image' => $imagePath,
@@ -604,34 +606,70 @@ class RequestController extends Controller
         }
 
 
-        //TAMBAHAN: POTONG STOK
-        // 
-        if ($req->details) {
-            foreach ($req->details as $detail) {
+        try {
+            DB::transaction(function () use ($req, &$detailStockInfoAtSerah) {
+                $requestedByBarang = $req->details
+                    ->groupBy('barang_id')
+                    ->map(fn($details) => (int) $details->sum('qty'))
+                    ->filter(fn($qty, $barangId) => (int) $barangId > 0)
+                    ->toArray();
 
-                $barang = Barang::find($detail->barang_id);
+                $lockedBarangs = Barang::whereIn('id', array_keys($requestedByBarang))
+                    ->lockForUpdate()
+                    ->get()
+                    ->keyBy('id');
 
-                if ($barang) {
-                    $stokSebelum = (int) $barang->stok;
-                    $kurang = max(0, (int) $detail->qty - $stokSebelum);
-                    $harga = (int) ($detail->harga_manual ?? ($barang->harga_estimasi ?? 0));
-                    $estimasi = $kurang * $harga;
+                foreach ($requestedByBarang as $barangId => $totalQty) {
+                    $barang = $lockedBarangs->get((int) $barangId);
+                    $stokTersedia = (int) ($barang?->stok ?? 0);
 
-                    $detailStockInfoAtSerah[$detail->id] = [
-                        'stok_realtime' => max(0, $stokSebelum),
-                        'kurang' => $kurang,
-                        'harga_satuan' => $harga,
-                        'estimasi' => $estimasi,
-                    ];
+                    if ($totalQty > $stokTersedia) {
+                        $unit = (string) ($barang?->unit ?? '');
+                        $namaBarang = (string) ($barang?->nama_barang ?? 'Barang');
 
-                    // ambil stok yang tersedia saja (biar tidak minus)
-                    $ambil = min($stokSebelum, (int) $detail->qty);
-
-                    $barang->stok -= $ambil;
-
-                    $barang->save();
+                        throw ValidationException::withMessages([
+                            'request' => ["Stok {$namaBarang} tidak cukup. Tersedia {$stokTersedia} {$unit}, diminta {$totalQty} {$unit}."],
+                        ]);
+                    }
                 }
+
+                if ($req->details) {
+                    foreach ($req->details as $detail) {
+                        $barang = $lockedBarangs->get((int) $detail->barang_id);
+
+                        if (!$barang) {
+                            continue;
+                        }
+
+                        $stokSebelum = (int) $barang->stok;
+                        $qty = (int) $detail->qty;
+                        $kurang = max(0, $qty - $stokSebelum);
+                        $harga = (int) ($detail->harga_manual ?? ($barang->harga_estimasi ?? 0));
+                        $estimasi = $kurang * $harga;
+
+                        $detailStockInfoAtSerah[$detail->id] = [
+                            'stok_realtime' => max(0, $stokSebelum),
+                            'kurang' => $kurang,
+                            'harga_satuan' => $harga,
+                            'estimasi' => $estimasi,
+                        ];
+
+                        $barang->stok = $stokSebelum - $qty;
+                        $barang->save();
+                    }
+                }
+            });
+        } catch (ValidationException $e) {
+            $message = collect($e->errors())->flatten()->first() ?? 'Request gagal diselesaikan.';
+
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'message' => $message,
+                ], 422);
             }
+
+            return redirect()->route('request.index')
+                ->with('error', $message);
         }
 
         $year = date('Y');

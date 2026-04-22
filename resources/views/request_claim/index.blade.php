@@ -56,6 +56,10 @@
                                         class="input"
                                         min="1"
                                         max="{{ $row->remaining_qty }}"
+                                        data-custom-validity="1"
+                                        data-field-label="Qty Minta"
+                                        data-item-name="{{ $row->barang->nama_barang ?? ($row->detail->keterangan ?? 'Barang') }}"
+                                        data-unit="{{ $row->barang->unit ?? '' }}"
                                         placeholder="Max {{ $row->remaining_qty }}"
                                         style="width:120px;"
                                     >

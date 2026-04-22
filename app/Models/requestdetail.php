@@ -11,6 +11,7 @@ class RequestDetail extends Model
         'request_id',
         'barang_id',
         'qty',
+        'qty_original',
         'keterangan',
         'image',
         'harga_manual',

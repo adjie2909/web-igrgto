@@ -2,12 +2,12 @@
 
 @section('content')
     <div class="page-stack">
-        <div class="canvas-wide">
+        <div class="canvas-wide canvas-wide--approval">
             <div class="card table-section">
                 <div class="card-header">
                     <div>
                         <h2 class="card-title">Approval</h2>
-                        <p class="card-description">Tinjau request pending per halaman supaya approval lebih cepat tanpa scroll terlalu jauh.</p>
+                        <!-- <p class="card-description">Tinjau request pending per halaman supaya approval lebih cepat tanpa scroll terlalu jauh.</p> -->
                     </div>
                     <a href="{{ route('dashboard') }}" class="btn btn-outline">Kembali</a>
                 </div>
@@ -20,7 +20,7 @@
                     @endforeach
 
                     <div class="table-wrap table-wrap--wide">
-                        <table>
+                        <table class="approval-bulk-table">
                             <thead>
                                 <tr>
                                     <th style="width:48px;"><input type="checkbox" id="checkAll"></th>
@@ -29,7 +29,9 @@
                                     <th>Divisi</th>
                                     <th>Barang</th>
                                     <th>Keterangan</th>
-                                    <th>Qty</th>
+                                    <th>Qty Req History</th>
+                                    <th>Qty Req Saat Ini</th>
+                                    <th>Qty Req Edit</th>
                                     <th>Gambar</th>
                                     <th>Status Stok</th>
                                     <th>Qty Sisa</th>
@@ -69,7 +71,22 @@
                                         <td>{{ $req->user->division->nama_divisi ?? '-' }}</td>
                                         <td>{{ $barang->nama_barang ?? '-' }}</td>
                                         <td>{{ $row->keterangan ?? '-' }}</td>
-                                        <td>{{ $row->qty }}</td>
+                                        <td class="nowrap">{{ (int) ($row->qty_sebelumnya ?? 0) }}</td>
+                                        <td class="nowrap">
+                                            {{ (int) ($row->qty_saat_ini ?? $row->qty) }}
+                                        </td>
+                                        <td>
+                                            <input
+                                                type="number"
+                                                class="input qty-edit-input"
+                                                name="qty_updates[{{ $row->id }}]"
+                                                min="1"
+                                                step="1"
+                                                value="{{ (int) $row->qty }}"
+                                                data-detail-id="{{ $row->id }}"
+                                                style="width:100px;"
+                                            >
+                                        </td>
                                         <td>
                                             @if(!empty($row->image))
                                                 <div style="display:flex; align-items:center; gap:8px;">
@@ -95,7 +112,7 @@
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="12">Tidak ada request pending untuk approval di halaman ini.</td>
+                                        <td colspan="14">Tidak ada request pending untuk approval di halaman ini.</td>
                                     </tr>
                                 @endforelse
                             </tbody>
@@ -133,7 +150,7 @@
                         <button type="button" class="btn btn-primary" id="btnOpenApproveModal">
                             Approve Halaman Ini
                         </button>
-                        <p id="approvalScopeHint" style="margin:0; color:#6b7280;">*Yang tidak dicentang pada halaman ini akan auto reject.</p>
+                        <!-- <p id="approvalScopeHint" style="margin:0; color:#6b7280;">*Yang tidak dicentang pada halaman ini akan auto reject.</p> -->
                     </div>
                 </form>
             </div>
@@ -143,7 +160,7 @@
             <div class="modal-content" style="max-width:430px;">
                 <h3 style="margin-top:0;">Konfirmasi Approval</h3>
                 <p id="approvalScopeText" style="font-size:14px; color:#64748b;">
-                    Yakin approve halaman ini? Yang tidak dicentang di halaman aktif akan di-reject.
+                    Yakin approve halaman ini? Item yang tidak checklist akan di-reject.
                 </p>
                 <div class="modal-actions">
                     <button type="button" class="btn btn-outline" id="btnCancelApprove">Batal</button>
@@ -299,6 +316,32 @@ document.addEventListener('DOMContentLoaded', function(){
             }
 
             selectedRows.set(detailId, buildRowPayload(cb));
+        });
+    }
+
+    function syncQtyInputsFromState(){
+        selectedRows.forEach((payload, detailId) => {
+            const input = document.querySelector('.qty-edit-input[data-detail-id=\"' + String(detailId) + '\"]');
+            const cb = checkboxes.find(cb => String(cb.dataset.detailId || '') === String(detailId));
+
+            if (!input || !cb) {
+                return;
+            }
+
+            const qty = parseInt(payload?.qty || 0, 10);
+            if (!Number.isFinite(qty) || qty <= 0) {
+                return;
+            }
+
+            input.value = String(qty);
+            cb.dataset.qty = String(qty);
+        });
+    }
+
+    function toggleQtyEditingDisabledState(){
+        // Qty edit harus tetap bisa dipakai walau master checkbox aktif.
+        document.querySelectorAll('.qty-edit-input').forEach((input) => {
+            input.disabled = false;
         });
     }
 
@@ -483,6 +526,7 @@ document.addEventListener('DOMContentLoaded', function(){
             syncCheckboxesFromState();
             saveSelectionState();
             syncApprovalScopeCopy();
+            toggleQtyEditingDisabledState();
             hitungTotal();
         });
     }
@@ -507,11 +551,35 @@ document.addEventListener('DOMContentLoaded', function(){
         saveSelectionState();
     }
 
+    syncQtyInputsFromState();
+    toggleQtyEditingDisabledState();
+
     syncCheckboxesFromState();
     syncApprovalScopeCopy();
     hitungTotal();
     refreshRealtimeStock();
     setInterval(refreshRealtimeStock, 10000);
+
+    document.querySelectorAll('.qty-edit-input').forEach((input) => {
+        input.addEventListener('input', () => {
+            const detailId = String(input.dataset.detailId || '');
+            if (!detailId) return;
+
+            const cb = checkboxes.find(cb => String(cb.dataset.detailId || '') === detailId);
+            if (!cb) return;
+
+            const parsed = parseInt(input.value || '0', 10);
+            const qty = Math.max(1, Number.isFinite(parsed) ? parsed : 1);
+
+            cb.dataset.qty = String(qty);
+
+            if (selectedRows.has(detailId)) {
+                selectedRows.set(detailId, buildRowPayload(cb));
+            }
+
+            hitungTotal();
+        });
+    });
 
     if(btnOpenApproveModal){
         btnOpenApproveModal.addEventListener('click', function(){

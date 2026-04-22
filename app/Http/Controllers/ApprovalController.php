@@ -478,6 +478,62 @@ class ApprovalController extends Controller
             ->paginate(10)
             ->withQueryString();
 
+        $pageCollection = $requestRows->getCollection();
+        $pageBarangIds = $pageCollection->pluck('barang_id')->filter()->unique()->values()->all();
+        $pageDivisionIds = $pageCollection
+            ->pluck('requestHeader.user.division_id')
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+
+        $divisionBarangTotalMap = DB::table('request_details')
+            ->join('request_headers', 'request_headers.id', '=', 'request_details.request_id')
+            ->join('users', 'users.id', '=', 'request_headers.user_id')
+            ->whereIn('request_details.barang_id', $pageBarangIds)
+            ->whereIn('users.division_id', $pageDivisionIds)
+            ->where('request_headers.status', '!=', 4)
+            ->select(
+                'users.division_id as division_id',
+                'request_details.barang_id as barang_id',
+                DB::raw('SUM(request_details.qty) as total_qty')
+            )
+            ->groupBy('users.division_id', 'request_details.barang_id')
+            ->get()
+            ->mapWithKeys(fn($row) => [
+                ((int) $row->division_id) . ':' . ((int) $row->barang_id) => (int) $row->total_qty,
+            ])
+            ->toArray();
+
+        $currentRequestQtyMap = $pageCollection
+            ->groupBy(function ($row) {
+                return ((int) $row->request_id) . ':' . ((int) $row->barang_id);
+            })
+            ->map(fn($items) => (int) $items->sum('qty'))
+            ->toArray();
+
+        $pageCollection->transform(function ($row) use ($user, $divisionBarangTotalMap, $currentRequestQtyMap) {
+            $divisionId = (int) ($row->requestHeader?->user?->division_id ?? 0);
+            $barangId = (int) ($row->barang_id ?? 0);
+            $requestId = (int) ($row->request_id ?? 0);
+
+            $total = (int) ($divisionBarangTotalMap[$divisionId . ':' . $barangId] ?? 0);
+            $current = (int) ($currentRequestQtyMap[$requestId . ':' . $barangId] ?? (int) $row->qty);
+
+            // "Qty sebelumnya" = total historis request divisi+barang, dikurangi qty dari request yang sedang ditampilkan.
+            $row->qty_sebelumnya = max(0, $total - $current);
+
+            // SAM melihat "qty saat ini" sebagai qty original (sebelum adjustment),
+            // SM melihat "qty saat ini" sebagai qty terbaru (hasil adjustment SAM).
+            if (($user->role ?? null) === 'SM') {
+                $row->qty_saat_ini = (int) $row->qty;
+            } else {
+                $row->qty_saat_ini = (int) (($row->qty_original ?? null) !== null ? $row->qty_original : $row->qty);
+            }
+
+            return $row;
+        });
+
         $availableStockMap = $this->getApprovalPageBaselineStockMap($requestRows->getCollection());
         $globalAvailableStockMap = $this->getApprovalPageBaselineStockMap($allPendingRows);
         $globalApprovalSummary = $this->buildApprovalSummary($allPendingRows);
@@ -543,6 +599,7 @@ class ApprovalController extends Controller
     public function bulkProcess(Request $request)
     {
         $user = auth()->user();
+        abort_unless($user && in_array($user->role, ['SAM', 'SM'], true), 403);
         $requestsToNotify = collect();
         $smApprovedIds = [];
         $stockNotifier = app(StockAvailabilityNotifier::class);
@@ -587,6 +644,46 @@ class ApprovalController extends Controller
             $pageIds = $ids;
         }
 
+        $qtyUpdates = collect($request->input('qty_updates', []))
+            ->mapWithKeys(function ($value, $detailId) {
+                $detailIdInt = (int) $detailId;
+                return $detailIdInt > 0 ? [$detailIdInt => (int) $value] : [];
+            })
+            ->filter(fn($qty) => (int) $qty > 0)
+            ->toArray();
+
+        DB::transaction(function () use ($user, $level, $ids, $pageIds, $qtyUpdates, $requestsToNotify, &$smApprovedIds) {
+            // Simpan qty update untuk semua request di halaman (page_request_ids),
+            // supaya hasil stok/reservasi ikut tersinkron walau user belum mencentang per baris.
+            if (!empty($qtyUpdates) && !empty($pageIds)) {
+                $detailRows = RequestDetail::whereIn('id', array_keys($qtyUpdates))
+                    ->whereIn('request_id', $pageIds)
+                    ->whereHas('requestHeader', function ($query) use ($level) {
+                        $query->where('current_approval_level', $level)
+                            ->where('status', 0);
+                    })
+                    ->get();
+
+                foreach ($detailRows as $detail) {
+                    $newQty = (int) ($qtyUpdates[(int) $detail->id] ?? 0);
+                    if ($newQty <= 0) {
+                        continue;
+                    }
+
+                    if ($detail->qty_original === null) {
+                        $detail->qty_original = (int) $detail->qty;
+                    }
+
+                    if ((int) $detail->qty !== $newQty) {
+                        $detail->qty = $newQty;
+                    }
+
+                    if ($detail->isDirty(['qty', 'qty_original'])) {
+                        $detail->save();
+                    }
+                }
+            }
+
         // Ambil data sesuai level dan status
         $headers = RequestHeader::whereIn('id', $ids)
             ->where('current_approval_level', $level)
@@ -617,6 +714,7 @@ class ApprovalController extends Controller
                 $requestsToNotify->push($req);
             }
         }
+        });
 
         foreach ($requestsToNotify as $requestToNotify) {
             $this->sendApprovalNotification($requestToNotify);

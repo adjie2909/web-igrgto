@@ -11,6 +11,7 @@ use App\Services\StockAvailabilityNotifier;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class RequestClaimController extends Controller
 {
@@ -318,7 +319,6 @@ class RequestClaimController extends Controller
             }
         }
 
-        $uniqueRequestIds = $requestIds->unique()->values();
         $itemsByRequest = $items->groupBy(function ($item) use ($details) {
             $detail = $details->get($item['request_detail_id']);
             return (int) ($detail?->request_id ?? 0);
@@ -331,7 +331,65 @@ class RequestClaimController extends Controller
             ->values()
             ->all();
 
-        DB::transaction(function () use ($itemsByRequest, $details, $user) {
+        try {
+            DB::transaction(function () use ($items, $itemsByRequest, $details, $user) {
+                $barangIds = $details->pluck('barang_id')
+                    ->filter()
+                    ->map(fn($id) => (int) $id)
+                    ->unique()
+                    ->values()
+                    ->all();
+
+                if (!empty($barangIds)) {
+                    Barang::whereIn('id', $barangIds)
+                        ->lockForUpdate()
+                        ->get();
+                }
+
+                $claimedMap = $this->claimedQtyByDetail($items->pluck('request_detail_id')->all());
+                foreach ($items as $item) {
+                    $detail = $details->get($item['request_detail_id']);
+                    $remaining = max(0, (int) $detail->qty - (int) ($claimedMap[$detail->id] ?? 0));
+
+                    if ($item['qty'] > $remaining) {
+                        throw ValidationException::withMessages([
+                            'items' => ["Qty {$detail->barang->nama_barang} melebihi sisa kuota."],
+                        ]);
+                    }
+                }
+
+                $availableMap = $this->getAvailableStockMap($barangIds);
+                $requestedByBarang = [];
+
+                foreach ($items as $item) {
+                    $detail = $details->get($item['request_detail_id']);
+                    $barangId = (int) ($detail->barang_id ?? 0);
+                    if ($barangId <= 0) {
+                        continue;
+                    }
+
+                    $requestedByBarang[$barangId] = (int) ($requestedByBarang[$barangId] ?? 0) + (int) $item['qty'];
+                }
+
+                foreach ($requestedByBarang as $barangId => $totalRequested) {
+                    $available = (int) ($availableMap[$barangId] ?? 0);
+                    $barang = $details->firstWhere('barang_id', $barangId)?->barang;
+                    $barangName = (string) ($barang?->nama_barang ?? 'Barang');
+                    $unit = (string) ($barang?->unit ?? '');
+
+                    if ($available <= 0) {
+                        throw ValidationException::withMessages([
+                            'items' => ["Stok {$barangName} sedang kosong, tidak bisa melakukan pengambilan."],
+                        ]);
+                    }
+
+                    if ($totalRequested > $available) {
+                        throw ValidationException::withMessages([
+                            'items' => ["Qty {$barangName} melebihi stok tersedia. Tersedia {$available} {$unit}, diminta {$totalRequested} {$unit}."],
+                        ]);
+                    }
+                }
+
             $year = date('Y');
             $month = date('m');
 
@@ -367,7 +425,12 @@ class RequestClaimController extends Controller
                     ]);
                 }
             }
-        });
+            });
+        } catch (ValidationException $e) {
+            return back()
+                ->withInput()
+                ->with('error', collect($e->errors())->flatten()->first() ?? 'Permintaan barang gagal diproses.');
+        }
 
         return redirect()->route('request-claim.index')
             ->with('success', 'Permintaan barang dari kuota berhasil dikirim ke PGA' . (empty($docList) ? '' : ' untuk: ' . implode(', ', $docList)));
@@ -402,7 +465,33 @@ class RequestClaimController extends Controller
             return back()->with('error', 'Permintaan harus diproses dulu sebelum serah terima');
         }
 
-        DB::transaction(function () use ($claim) {
+        try {
+            DB::transaction(function () use ($claim) {
+            $requestedByBarang = $claim->details
+                ->groupBy('barang_id')
+                ->map(fn($details) => (int) $details->sum('qty'))
+                ->filter(fn($qty, $barangId) => (int) $barangId > 0)
+                ->toArray();
+
+            $lockedBarangs = Barang::whereIn('id', array_keys($requestedByBarang))
+                ->lockForUpdate()
+                ->get()
+                ->keyBy('id');
+
+            foreach ($requestedByBarang as $barangId => $totalQty) {
+                $barang = $lockedBarangs->get((int) $barangId);
+                $stokTersedia = (int) ($barang?->stok ?? 0);
+
+                if ($totalQty > $stokTersedia) {
+                    $unit = (string) ($barang?->unit ?? '');
+                    $namaBarang = (string) ($barang?->nama_barang ?? 'Barang');
+
+                    throw ValidationException::withMessages([
+                        'claim' => ["Stok {$namaBarang} tidak cukup. Tersedia {$stokTersedia} {$unit}, diminta {$totalQty} {$unit}."],
+                    ]);
+                }
+            }
+
             $detailStockInfo = [];
 
             foreach ($claim->details as $detail) {
@@ -410,7 +499,7 @@ class RequestClaimController extends Controller
                     continue;
                 }
 
-                $barang = Barang::lockForUpdate()->find($detail->barang_id);
+                $barang = $lockedBarangs->get((int) $detail->barang_id);
 
                 if (!$barang) {
                     continue;
@@ -428,7 +517,7 @@ class RequestClaimController extends Controller
                     'estimasi' => $kurang * $harga,
                 ];
 
-                $barang->stok = max(0, $stokSebelum - $qty);
+                $barang->stok = $stokSebelum - $qty;
                 $barang->save();
             }
 
@@ -445,7 +534,18 @@ class RequestClaimController extends Controller
             cache()->put("request_claim_detail_stock_snapshot:{$claim->id}", $detailStockInfo, now()->addDays(2));
 
             $this->syncRequestHeaderCompletionStatus((int) $claim->request_id);
-        });
+            });
+        } catch (ValidationException $e) {
+            $message = collect($e->errors())->flatten()->first() ?? 'Serah terima gagal diproses.';
+
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'message' => $message,
+                ], 422);
+            }
+
+            return back()->with('error', $message);
+        }
 
         $doc = $this->formatDocForUrl($claim->nomor_claim, 'SERAH-TERIMA-KUOTA');
         $pdfUrl = route('request-claim.pdf.serah', ['id' => $claim->id, 'doc' => $doc]);

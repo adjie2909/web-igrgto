@@ -102,7 +102,14 @@
                     </form>
                 @endif
 
-                @if($ticket->status != 2 && in_array(auth()->user()->division_id, [9,10]))
+                @if(
+                    $ticket->status != 2
+                    && (
+                        (auth()->user()->division_id == 9 && (int) $ticket->level == 1)
+                        || (auth()->user()->division_id == 10 && (int) $ticket->level == 2)
+                        || auth()->user()->division_id == 14
+                    )
+                )
                     <form method="POST" action="{{ route('ticket.close', $ticket->id) }}">
                         @csrf
                         <button class="btn btn-green" type="submit">

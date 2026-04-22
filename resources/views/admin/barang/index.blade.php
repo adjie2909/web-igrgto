@@ -35,6 +35,7 @@
                 <th>Unit</th>
                 <th>Stok Master</th>
                 <th>Stok Tersedia</th>
+                <th>Harga</th>
                 <th width="90">Aksi</th>
             </tr>
         </thead>
@@ -48,6 +49,7 @@
                 <td>{{ $b->unit }}</td>
                 <td>{{ (int) ($b->stok ?? 0) }}</td>
                 <td>{{ (int) ($b->stok_tersedia ?? $b->stok_saat_ini ?? $b->stok ?? 0) }}</td>
+                <td style="text-align:center; white-space:nowrap;">{{ number_format((int) ($b->harga_estimasi ?? 0), 0, ',', '.') }}</td>
                 <td>
                     <details class="action-menu">
                         <summary class="action-menu__trigger">
